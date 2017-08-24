@@ -1,11 +1,11 @@
 options:
   debug:
-    default: False
     type: boolean
+    default: False
     description: Enable debug logging.
   verbose:
-    default: False
     type: boolean
+    default: False
     description: Enable verbose logging.
   use-syslog:
     type: boolean
@@ -13,19 +13,19 @@ options:
     description: |
       Setting this to True will allow supporting services to log to syslog.
   openstack-origin-git:
-    default:
     type: string
+    default:
     description: |
       Specifies a default OpenStack release name, or a YAML dictionary
       listing the git repositories to install from.
-
+      .
       The default Openstack release name may be one of the following, where
       the corresponding OpenStack github branch will be used:
         * liberty
         * mitaka
         * newton
         * master
-
+      .
       The YAML must minimally include requirements, neutron-fwaas,
       neutron-lbaas, neutron-vpnaas, and neutron repositories, and may
       also include repositories for other dependencies:
@@ -47,12 +47,12 @@ options:
            branch: master}
         release: master
   rabbit-user:
-    default: neutron
     type: string
+    default: neutron
     description: Username used to access RabbitMQ queue
   rabbit-vhost:
-    default: openstack
     type: string
+    default: openstack
     description: RabbitMQ vhost
   data-port:
     type: string
@@ -106,28 +106,12 @@ options:
       Firewall driver to use to support use of security groups with
       instances; valid values include iptables_hybrid (default) and
       openvswitch (>= Mitaka on Ubuntu 16.04 or later).
-  # Network configuration options
-  # by default all access is over 'private-address'
-  os-data-network:
-    type: string
-    default:
-    description: |
-      The IP address and netmask of the OpenStack Data network (e.g.,
-      192.168.0.0/24)
-      .
-      This network will be used for tenant network traffic in overlay
-      networks.
-      .
-      In order to support service zones spanning multiple network
-      segments, a space-delimited list of a.b.c.d/x can be provided
-      The address of the first network found to have an address
-      configured will be used.
   ext-port:
     type: string
     default:
     description: |
       Deprecated: Use bridge-mappings and data-port to create a network
-      which can be used for external connectivity.  You can call the network
+      which can be used for external connectivity. You can call the network
       external and the bridge br-ex by convention, but neither is required
 
       A space-separated list of external ports to use for routing of instance
@@ -138,38 +122,40 @@ options:
     type: boolean
     default: false
     description: |
-      Enable local Neutron DHCP and Metadata Agents. This is useful for deployments
-      which do not include a neutron-gateway (do not require l3, lbaas or vpnaas
-      services) and should only be used in-conjunction with flat or VLAN provider
-      networks configurations.
+      Enable local Neutron DHCP and Metadata Agents. This is useful for
+      deployments which do not include a neutron-gateway (do not require l3,
+      lbaas or vpnaas services) and should only be used in-conjunction with
+      flat or VLAN provider networks configurations.
   dnsmasq-flags:
     type: string
     default:
     description: |
-      Comma-separated list of key=value config flags with the additional
-      dhcp options for neutron dnsmasq. Note, this option is only valid when
+      Comma-separated list of key=value config flags with the additional dhcp
+      options for neutron dnsmasq. Note, this option is only valid when
       enable-local-dhcp-and-metadata option is set to True.
   prevent-arp-spoofing:
     type: boolean
     default: true
     description: |
-      Enable suppression of ARP responses that don't match an IP address that belongs
-      to the port from which they originate.
+      Enable suppression of ARP responses that don't match an IP address that
+      belongs to the port from which they originate.
       .
-      Only supported in OpenStack Liberty or newer, which has the required minimum version
-      of Open vSwitch.
+      Only supported in OpenStack Liberty or newer, which has the required
+      minimum version of Open vSwitch.
   enable-dpdk:
     type: boolean
     default: false
     description: |
-      Enable DPDK fast userspace networking; this requires use of DPDK supported network
-      interface drivers and must be used in conjuction with the data-port configuration
-      option to configure each bridge with an appropriate DPDK enabled network device.
+      Enable DPDK fast userspace networking; this requires use of DPDK
+      supported network interface drivers and must be used in conjunction with
+      the data-port configuration option to configure each bridge with an
+      appropriate DPDK enabled network device.
   dpdk-socket-memory:
     type: int
     default: 1024
     description: |
-      Amount of hugepage memory in MB to allocate per NUMA socket in deployed systems.
+      Amount of hugepage memory in MB to allocate per NUMA socket in deployed
+      systems.
       .
       Only used when DPDK is enabled.
   dpdk-socket-cores:
@@ -183,7 +169,8 @@ options:
     type: string
     default: uio_pci_generic
     description: |
-      Kernel userspace device driver to use for DPDK devices, valid values include:
+      Kernel userspace device driver to use for DPDK devices, valid values
+      include:
       .
         vfio-pci
         uio_pci_generic
@@ -193,11 +180,11 @@ options:
     type: boolean
     default: false
     description: |
-      Enable SR-IOV NIC agent on deployed units; use with sriov-device-mappings to
-      map SR-IOV devices to underlying provider networks.  Enabling this option
-      allows instances to be plugged into directly into SR-IOV VF devices connected
-      to underlying provider networks alongside the default Open vSwitch networking
-      options.
+      Enable SR-IOV NIC agent on deployed units; use with sriov-device-mappings
+      to map SR-IOV devices to underlying provider networks. Enabling this
+      option allows instances to be plugged into directly into SR-IOV VF
+      devices connected to underlying provider networks alongside the default
+      Open vSwitch networking options.
   sriov-device-mappings:
     type: string
     default:
@@ -211,12 +198,36 @@ options:
     type: string
     default: auto
     description: |
-      Number of VF's to configure each PF with; by default, each SR-IOV PF will be
-      configured with the maximum number of VF's it can support.  Either use a
-      single integer to apply the same VF configuration to all detected SR-IOV
-      devices or use a per-device configuration in the following format
+      Number of VF's to configure each PF with; by default, each SR-IOV PF will
+      be configured with the maximum number of VF's it can support. Either use
+      a single integer to apply the same VF configuration to all detected
+      SR-IOV devices or use a per-device configuration in the following format
       .
         <device>:<numvfs>
       .
       Multiple devices can be configured by providing multi values delimited by
       spaces.
+  worker-multiplier:
+    type: float
+    default:
+    description: |
+      The CPU core multiplier to use when configuring worker processes for
+      this services e.g. metadata-agent. By default, the number of workers for
+      each daemon is set to twice the number of CPU cores a service unit has.
+      When deployed in a LXD container, this default value will be capped to 4
+      workers unless this configuration option is set.
+  # Network config (by default all access is over 'private-address')
+  os-data-network:
+    type: string
+    default: ""
+    description: |
+      The IP address and netmask of the OpenStack Data network (e.g.,
+      192.168.0.0/24)
+      .
+      This network will be used for tenant network traffic in overlay
+      networks.
+      .
+      In order to support service zones spanning multiple network
+      segments, a space-delimited list of a.b.c.d/x can be provided
+      The address of the first network found to have an address
+      configured will be used.

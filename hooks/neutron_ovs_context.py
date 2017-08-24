@@ -114,6 +114,10 @@ class OVSPluginContext(context.NeutronContext):
         ovs_ctxt['distributed_routing'] = neutron_api_settings['enable_dvr']
         ovs_ctxt['overlay_network_type'] = \
             neutron_api_settings['overlay_network_type']
+        ovs_ctxt['polling_interval'] = neutron_api_settings['polling_interval']
+        ovs_ctxt['rpc_response_timeout'] = \
+            neutron_api_settings['rpc_response_timeout']
+        ovs_ctxt['report_interval'] = neutron_api_settings['report_interval']
         # TODO: We need to sort out the syslog and debug/verbose options as a
         # general context helper
         ovs_ctxt['use_syslog'] = conf['use-syslog']

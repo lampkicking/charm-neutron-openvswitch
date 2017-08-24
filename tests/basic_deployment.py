@@ -54,7 +54,10 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         self._deploy()
 
         u.log.info('Waiting on extended status checks...')
-        exclude_services = []
+        # We delay check for services running on neutron-openvswitch unit to
+        # after verification of sriov configuration. See comment in function
+        # test_301_neutron_sriov_config()
+        exclude_services = ['neutron-openvswitch']
         self._auto_wait_for_status(exclude_services=exclude_services)
 
         self.d.sentry.wait()
@@ -155,6 +158,9 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
                 }
             neutron_ovs_config['openstack-origin-git'] = yaml.dump(openstack_origin_git)
 
+        neutron_ovs_config['enable-sriov'] = True
+        neutron_ovs_config['sriov-device-mappings'] = 'physnet42:eth42'
+
         pxc_config = {
             'dataset-size': '25%',
             'max-connections': 1000,
@@ -196,6 +202,45 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         ret = u.validate_services_by_name(services)
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
+
+        u.log.debug('OK')
+
+    def test_301_neutron_sriov_config(self):
+        """Verify data in the sriov agent config file. This is supported since
+           Kilo"""
+        if self._get_openstack_release() < self.trusty_kilo:
+            u.log.debug('Skipping test, sriov agent not supported on < '
+                        'trusty/kilo')
+            return
+        u.log.debug('Checking sriov agent config file data...')
+        unit = self.n_ovs_sentry
+        conf = '/etc/neutron/plugins/ml2/sriov_agent.ini'
+        expected = {
+            'sriov_nic': {
+                'physical_device_mappings': 'physnet42:eth42',
+            },
+        }
+        for section, pairs in expected.iteritems():
+            ret = u.validate_config_data(unit, conf, section, pairs)
+            if ret:
+                message = "sriov agent config error: {}".format(ret)
+                amulet.raise_status(amulet.FAIL, msg=message)
+
+        # the CI environment does not expose an actual SR-IOV NIC to the
+        # functional tests. consequently the neutron-sriov agent will not
+        # run, and the charm will update its status as such. this will prevent
+        # the success of pause/resume test.
+        #
+        # disable sriov after validation of config file is complete.
+        u.log.info('Disabling SR-IOV after verifying config file data...')
+        configs = {
+            'neutron-openvswitch': { 'enable-sriov': False }
+        }
+        super(NeutronOVSBasicDeployment, self)._configure_services(configs)
+
+        u.log.info('Waiting for config-change to complete...')
+        self._auto_wait_for_status()
+        self.d.sentry.wait()
 
         u.log.debug('OK')
 

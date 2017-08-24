@@ -193,6 +193,48 @@ class TestNeutronOVSUtils(CharmTestCase):
         self.assertFalse('neutron-l3-agent' in pkg_list)
 
     @patch.object(nutils, 'use_dvr')
+    @patch.object(nutils, 'git_install_requested')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'os_release')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'headers_package')
+    def test_determine_pkgs_sriov(self, _head_pkgs, _os_rel, _git_requested,
+                                  _use_dvr):
+        self.test_config.set('enable-local-dhcp-and-metadata', False)
+        self.test_config.set('enable-sriov', True)
+        _git_requested.return_value = False
+        _use_dvr.return_value = False
+        _os_rel.return_value = 'kilo'
+        self.os_release.return_value = 'kilo'
+        _head_pkgs.return_value = head_pkg
+        pkg_list = nutils.determine_packages()
+        expect = [
+            'neutron-plugin-sriov-agent',
+            'neutron-plugin-openvswitch-agent',
+            head_pkg,
+        ]
+        self.assertItemsEqual(pkg_list, expect)
+
+    @patch.object(nutils, 'use_dvr')
+    @patch.object(nutils, 'git_install_requested')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'os_release')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'headers_package')
+    def test_determine_pkgs_sriov_mitaka(self, _head_pkgs, _os_rel,
+                                         _git_requested, _use_dvr):
+        self.test_config.set('enable-local-dhcp-and-metadata', False)
+        self.test_config.set('enable-sriov', True)
+        _git_requested.return_value = False
+        _use_dvr.return_value = False
+        _os_rel.return_value = 'mitaka'
+        self.os_release.return_value = 'mitaka'
+        _head_pkgs.return_value = head_pkg
+        pkg_list = nutils.determine_packages()
+        expect = [
+            'neutron-sriov-agent',
+            'neutron-openvswitch-agent',
+            head_pkg
+        ]
+        self.assertItemsEqual(pkg_list, expect)
+
+    @patch.object(nutils, 'use_dvr')
     def test_register_configs(self, _use_dvr):
         class _mock_OSConfigRenderer():
             def __init__(self, templates_dir=None, openstack_release=None):
@@ -247,6 +289,22 @@ class TestNeutronOVSUtils(CharmTestCase):
         [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
         self.assertEqual(_map[nutils.NEUTRON_CONF]['services'], svcs)
 
+    @patch.object(nutils, 'enable_sriov_agent')
+    @patch.object(nutils, 'use_dvr')
+    def test_resource_map_kilo_sriov(self, _use_dvr, _enable_sriov_agent):
+        _use_dvr.return_value = False
+        _enable_sriov_agent.return_value = True
+        self.os_release.return_value = 'kilo'
+        self.lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty'}
+        _map = nutils.resource_map()
+        svcs = ['neutron-plugin-openvswitch-agent',
+                'neutron-plugin-sriov-agent']
+        confs = [nutils.NEUTRON_CONF, nutils.NEUTRON_SRIOV_AGENT_CONF]
+        [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
+        self.assertEqual(_map[nutils.NEUTRON_CONF]['services'], svcs)
+        self.assertEqual(_map[nutils.NEUTRON_SRIOV_AGENT_CONF]['services'],
+                         ['neutron-plugin-sriov-agent'])
+
     @patch.object(nutils, 'use_dvr')
     def test_resource_map_mitaka(self, _use_dvr):
         _use_dvr.return_value = False
@@ -257,6 +315,22 @@ class TestNeutronOVSUtils(CharmTestCase):
         confs = [nutils.NEUTRON_CONF]
         [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
         self.assertEqual(_map[nutils.NEUTRON_CONF]['services'], svcs)
+
+    @patch.object(nutils, 'enable_sriov_agent')
+    @patch.object(nutils, 'use_dvr')
+    def test_resource_map_mitaka_sriov(self, _use_dvr, _enable_sriov_agent):
+        _use_dvr.return_value = False
+        _enable_sriov_agent.return_value = True
+        self.os_release.return_value = 'mitaka'
+        self.lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial'}
+        _map = nutils.resource_map()
+        svcs = ['neutron-openvswitch-agent',
+                'neutron-sriov-agent']
+        confs = [nutils.NEUTRON_CONF, nutils.NEUTRON_SRIOV_AGENT_CONF]
+        [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
+        self.assertEqual(_map[nutils.NEUTRON_CONF]['services'], svcs)
+        self.assertEqual(_map[nutils.NEUTRON_SRIOV_AGENT_CONF]['services'],
+                         ['neutron-sriov-agent'])
 
     @patch.object(nutils, 'use_dvr')
     def test_resource_map_dvr(self, _use_dvr):
