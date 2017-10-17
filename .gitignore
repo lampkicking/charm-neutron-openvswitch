@@ -6,3 +6,4 @@ tags
 *.sw[nop]
 *.pyc
 .unit-state.db
+.pydevproject

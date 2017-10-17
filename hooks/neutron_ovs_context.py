@@ -18,6 +18,8 @@ import uuid
 from pci import PCINetDevices
 from charmhelpers.core.hookenv import (
     config,
+    log,
+    WARNING,
     relation_get,
     relation_ids,
     related_units,
@@ -29,8 +31,12 @@ from charmhelpers.core.host import (
     lsb_release,
 )
 from charmhelpers.contrib.openstack import context
-from charmhelpers.contrib.openstack.utils import get_host_ip
-from charmhelpers.contrib.openstack.utils import config_flags_parser
+from charmhelpers.contrib.openstack.utils import (
+    config_flags_parser,
+    get_host_ip,
+    os_release,
+    CompareOpenStackReleases,
+)
 from charmhelpers.contrib.network.ip import get_address_in_network
 from charmhelpers.contrib.openstack.context import (
     OSContextGenerator,
@@ -112,6 +118,8 @@ class OVSPluginContext(context.NeutronContext):
         ovs_ctxt['neutron_security_groups'] = self.neutron_security_groups
         ovs_ctxt['l2_population'] = neutron_api_settings['l2_population']
         ovs_ctxt['distributed_routing'] = neutron_api_settings['enable_dvr']
+        ovs_ctxt['extension_drivers'] = neutron_api_settings[
+            'extension_drivers']
         ovs_ctxt['overlay_network_type'] = \
             neutron_api_settings['overlay_network_type']
         ovs_ctxt['polling_interval'] = neutron_api_settings['polling_interval']
@@ -123,6 +131,14 @@ class OVSPluginContext(context.NeutronContext):
         ovs_ctxt['use_syslog'] = conf['use-syslog']
         ovs_ctxt['verbose'] = conf['verbose']
         ovs_ctxt['debug'] = conf['debug']
+
+        cmp_release = CompareOpenStackReleases(
+            os_release('neutron-common', base='icehouse'))
+        if conf['prevent-arp-spoofing'] and cmp_release >= 'ocata':
+            log("prevent-arp-spoofing is True yet this feature is deprecated "
+                "and no longer has any effect in your version of Openstack",
+                WARNING)
+
         ovs_ctxt['prevent_arp_spoofing'] = conf['prevent-arp-spoofing']
         ovs_ctxt['enable_dpdk'] = conf['enable-dpdk']
 
@@ -142,6 +158,20 @@ class OVSPluginContext(context.NeutronContext):
             ovs_ctxt['sriov_device_mappings'] = (
                 ','.join(sriov_mappings.split())
             )
+
+        enable_sriov = config('enable-sriov')
+        if enable_sriov:
+            ovs_ctxt['enable_sriov'] = True
+
+        sriov_numvfs = config('sriov-numvfs')
+        if sriov_numvfs:
+            try:
+                if sriov_numvfs != 'auto':
+                    int(sriov_numvfs)
+            except ValueError:
+                ovs_ctxt['sriov_vfs_list'] = sriov_numvfs
+            else:
+                ovs_ctxt['sriov_vfs_blanket'] = sriov_numvfs
 
         flat_providers = config('flat-network-providers')
         if flat_providers:
@@ -185,6 +215,7 @@ class DHCPAgentContext(OSContextGenerator):
         dnsmasq_flags = config('dnsmasq-flags')
         if dnsmasq_flags:
             ctxt['dnsmasq_flags'] = config_flags_parser(dnsmasq_flags)
+        ctxt['dns_servers'] = config('dns-servers')
 
         neutron_api_settings = NeutronAPIContext()()
         if neutron_api_settings.get('dns_domain'):

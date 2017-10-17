@@ -57,8 +57,8 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         # We delay check for services running on neutron-openvswitch unit to
         # after verification of sriov configuration. See comment in function
         # test_301_neutron_sriov_config()
-        exclude_services = ['neutron-openvswitch']
-        self._auto_wait_for_status(exclude_services=exclude_services)
+        self.exclude_services = ['neutron-openvswitch']
+        self._auto_wait_for_status(exclude_services=self.exclude_services)
 
         self.d.sentry.wait()
         self._initialize_tests()
@@ -389,6 +389,28 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
 
         self.d.configure(juju_service, set_default)
         u.log.debug('OK')
+
+    def test_400_enable_qos(self):
+        """Check qos settings set via neutron-api charm"""
+        if self._get_openstack_release() >= self.trusty_mitaka:
+            unit = self.n_ovs_sentry
+            set_default = {'enable-qos': 'False'}
+            set_alternate = {'enable-qos': 'True'}
+            self.d.configure('neutron-api', set_alternate)
+            time.sleep(60)
+            self._auto_wait_for_status(exclude_services=self.exclude_services)
+            config = u._get_config(
+                unit,
+                '/etc/neutron/plugins/ml2/openvswitch_agent.ini')
+            extensions = config.get('agent', 'extensions').split(',')
+            if 'qos' not in extensions:
+                message = "qos not in extensions"
+                amulet.raise_status(amulet.FAIL, msg=message)
+
+            u.log.debug('Setting QoS back to {}'.format(
+                set_default['enable-qos']))
+            self.d.configure('neutron-api', set_default)
+            u.log.debug('OK')
 
     def test_910_pause_and_resume(self):
         """The services can be paused and resumed. """

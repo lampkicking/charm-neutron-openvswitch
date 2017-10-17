@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mock import MagicMock, patch
+from mock import MagicMock, patch, mock_open
 import yaml
 
 from test_utils import CharmTestCase
@@ -90,6 +90,30 @@ class NeutronOVSHooksTests(CharmTestCase):
         self._call_hook('install')
         self.install_packages.assert_called_with()
         self.git_install.assert_called_with(projects_yaml)
+
+    @patch.object(hooks, 'restart_on_change')
+    def test_migrate_ovs_default_file(self, mock_restart):
+        # Tests that the /etc/default/openvswitch-switch file is/isn't
+        # migrated on the upgrade-charm hook and that no restarts are
+        # attempted of the openvswitch-switch service.
+        tests = [
+            ('package-provided-openvswitch-switch', True),
+            ('16.07-dpdk-openvswitch-switch', True),
+            ('16.10-openvswitch-switch', False),
+        ]
+        for sample, should_migrate in tests:
+            self.CONFIGS.write.reset_mock()
+            with open('unit_tests/%s' % sample, 'r') as f:
+                content = f.read()
+
+            with patch('__builtin__.open', mock_open(read_data=content),
+                       create=True):
+                self._call_hook('upgrade-charm')
+                if should_migrate:
+                    self.CONFIGS.write.assert_called_with(utils.OVS_DEFAULT)
+                else:
+                    self.CONFIGS.write.assert_not_called()
+                self.assertEqual(0, mock_restart.call_count)
 
     @patch.object(hooks, 'git_install_requested')
     def test_config_changed(self, git_requested):

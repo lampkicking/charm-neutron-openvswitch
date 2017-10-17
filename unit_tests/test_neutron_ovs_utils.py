@@ -108,6 +108,7 @@ class TestNeutronOVSUtils(CharmTestCase):
 
     @patch.object(nutils, 'determine_packages')
     def test_install_packages(self, _determine_packages):
+        self.os_release.return_value = 'mitaka'
         _determine_packages.return_value = 'randompkg'
         nutils.install_packages()
         self.apt_update.assert_called_with()
@@ -116,6 +117,7 @@ class TestNeutronOVSUtils(CharmTestCase):
 
     @patch.object(nutils, 'determine_packages')
     def test_install_packages_dkms_needed(self, _determine_packages):
+        self.os_release.return_value = 'mitaka'
         _determine_packages.return_value = 'randompkg'
         self.determine_dkms_package.return_value = \
             ['openvswitch-datapath-dkms']
@@ -289,11 +291,11 @@ class TestNeutronOVSUtils(CharmTestCase):
         [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
         self.assertEqual(_map[nutils.NEUTRON_CONF]['services'], svcs)
 
-    @patch.object(nutils, 'enable_sriov_agent')
+    @patch.object(nutils, 'enable_sriov')
     @patch.object(nutils, 'use_dvr')
-    def test_resource_map_kilo_sriov(self, _use_dvr, _enable_sriov_agent):
+    def test_resource_map_kilo_sriov(self, _use_dvr, _enable_sriov):
         _use_dvr.return_value = False
-        _enable_sriov_agent.return_value = True
+        _enable_sriov.return_value = True
         self.os_release.return_value = 'kilo'
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'trusty'}
         _map = nutils.resource_map()
@@ -316,11 +318,11 @@ class TestNeutronOVSUtils(CharmTestCase):
         [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
         self.assertEqual(_map[nutils.NEUTRON_CONF]['services'], svcs)
 
-    @patch.object(nutils, 'enable_sriov_agent')
+    @patch.object(nutils, 'enable_sriov')
     @patch.object(nutils, 'use_dvr')
-    def test_resource_map_mitaka_sriov(self, _use_dvr, _enable_sriov_agent):
+    def test_resource_map_mitaka_sriov(self, _use_dvr, _enable_sriov):
         _use_dvr.return_value = False
-        _enable_sriov_agent.return_value = True
+        _enable_sriov.return_value = True
         self.os_release.return_value = 'mitaka'
         self.lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial'}
         _map = nutils.resource_map()
@@ -563,12 +565,12 @@ class TestNeutronOVSUtils(CharmTestCase):
             call('/var/log/neutron', owner='neutron',
                  group='neutron', perms=0755, force=False),
         ]
-        self.assertEquals(mkdir.call_args_list, expected)
+        self.assertEqual(mkdir.call_args_list, expected)
         expected = [
             call('/var/log/neutron/server.log', '', owner='neutron',
                  group='neutron', perms=0600),
         ]
-        self.assertEquals(write_file.call_args_list, expected)
+        self.assertEqual(write_file.call_args_list, expected)
 
     @patch('os.listdir')
     @patch('os.path.join')
@@ -619,11 +621,11 @@ class TestNeutronOVSUtils(CharmTestCase):
                  '/etc/init/neutron-ovs-cleanup.conf',
                  neutron_ovs_cleanup_context, perms=0o644),
         ]
-        self.assertEquals(self.render.call_args_list, expected)
+        self.assertEqual(self.render.call_args_list, expected)
         expected = [
             call('neutron-plugin-openvswitch-agent'),
         ]
-        self.assertEquals(self.service_restart.call_args_list, expected)
+        self.assertEqual(self.service_restart.call_args_list, expected)
 
     @patch('os.listdir')
     @patch('os.path.join')
@@ -648,7 +650,7 @@ class TestNeutronOVSUtils(CharmTestCase):
                  'joined-string', {'daemon_path': 'joined-string'},
                  perms=420)
         ]
-        self.assertEquals(self.render.call_args_list, expected)
+        self.assertEqual(self.render.call_args_list, expected)
 
     def test_assess_status(self):
         with patch.object(nutils, 'assess_status_func') as asf:
@@ -745,7 +747,9 @@ class TestNeutronOVSUtils(CharmTestCase):
         mock_pci_devices.get_device_from_interface_name.side_effect = \
             lambda x: self.pci_devices.get(x)
 
-    def test_configure_sriov_no_changes(self):
+    @patch('os.chmod')
+    def test_configure_sriov_no_changes(self, _os_chmod):
+        self.os_release.return_value = 'kilo'
         _config = {
             'enable-sriov': True,
             'sriov-numvfs': 'auto'
@@ -756,7 +760,9 @@ class TestNeutronOVSUtils(CharmTestCase):
 
         self.assertFalse(self.remote_restart.called)
 
-    def test_configure_sriov_auto(self):
+    @patch('os.chmod')
+    def test_configure_sriov_auto(self, _os_chmod):
+        self.os_release.return_value = 'mitaka'
         _config = {
             'enable-sriov': True,
             'sriov-numvfs': 'auto'
@@ -773,7 +779,9 @@ class TestNeutronOVSUtils(CharmTestCase):
         )
         self.assertTrue(self.remote_restart.called)
 
-    def test_configure_sriov_numvfs(self):
+    @patch('os.chmod')
+    def test_configure_sriov_numvfs(self, _os_chmod):
+        self.os_release.return_value = 'mitaka'
         _config = {
             'enable-sriov': True,
             'sriov-numvfs': '32',
@@ -787,7 +795,9 @@ class TestNeutronOVSUtils(CharmTestCase):
 
         self.assertTrue(self.remote_restart.called)
 
-    def test_configure_sriov_numvfs_per_device(self):
+    @patch('os.chmod')
+    def test_configure_sriov_numvfs_per_device(self, _os_chmod):
+        self.os_release.return_value = 'kilo'
         _config = {
             'enable-sriov': True,
             'sriov-numvfs': 'ens0:32 sriov23:64'
