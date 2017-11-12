@@ -107,13 +107,12 @@ class OVSPluginContextTest(CharmTestCase):
     @patch.object(charmhelpers.contrib.openstack.context, 'unit_get')
     @patch.object(charmhelpers.contrib.openstack.context, 'is_clustered')
     @patch.object(charmhelpers.contrib.openstack.context, 'https')
-    @patch.object(context.OVSPluginContext, '_save_flag_file')
     @patch.object(context.OVSPluginContext, '_ensure_packages')
     @patch.object(charmhelpers.contrib.openstack.context,
                   'neutron_plugin_attribute')
     @patch.object(charmhelpers.contrib.openstack.context, 'unit_private_ip')
     def test_neutroncc_context_api_rel(self, _unit_priv_ip, _npa, _ens_pkgs,
-                                       _save_ff, _https, _is_clus, _unit_get,
+                                       _https, _is_clus, _unit_get,
                                        _config, _runits, _rids, _rget,
                                        _get_os_cdnm_pkg):
         def mock_npa(plugin, section, manager):
@@ -195,14 +194,13 @@ class OVSPluginContextTest(CharmTestCase):
     @patch.object(charmhelpers.contrib.openstack.context, 'unit_get')
     @patch.object(charmhelpers.contrib.openstack.context, 'is_clustered')
     @patch.object(charmhelpers.contrib.openstack.context, 'https')
-    @patch.object(context.OVSPluginContext, '_save_flag_file')
     @patch.object(context.OVSPluginContext, '_ensure_packages')
     @patch.object(charmhelpers.contrib.openstack.context,
                   'neutron_plugin_attribute')
     @patch.object(charmhelpers.contrib.openstack.context, 'unit_private_ip')
     def test_neutroncc_context_api_rel_disable_security(self,
                                                         _unit_priv_ip, _npa,
-                                                        _ens_pkgs, _save_ff,
+                                                        _ens_pkgs,
                                                         _https, _is_clus,
                                                         _unit_get,
                                                         _config, _runits,
