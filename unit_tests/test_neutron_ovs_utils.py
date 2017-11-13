@@ -143,8 +143,11 @@ class TestNeutronOVSUtils(CharmTestCase):
         self.os_release.return_value = 'icehouse'
         _head_pkgs.return_value = head_pkg
         pkg_list = nutils.determine_packages()
-        expect = ['neutron-plugin-openvswitch-agent', head_pkg]
-        self.assertItemsEqual(pkg_list, expect)
+        expect = [
+            head_pkg,
+            'neutron-plugin-openvswitch-agent'
+        ]
+        self.assertEqual(pkg_list, expect)
 
     @patch.object(nutils, 'use_dvr')
     @patch.object(nutils, 'git_install_requested')
@@ -159,8 +162,11 @@ class TestNeutronOVSUtils(CharmTestCase):
         self.os_release.return_value = 'mitaka'
         _head_pkgs.return_value = head_pkg
         pkg_list = nutils.determine_packages()
-        expect = ['neutron-openvswitch-agent', head_pkg]
-        self.assertItemsEqual(pkg_list, expect)
+        expect = [
+            head_pkg,
+            'neutron-openvswitch-agent',
+        ]
+        self.assertEqual(pkg_list, expect)
 
     @patch.object(nutils, 'use_dvr')
     @patch.object(nutils, 'git_install_requested')
@@ -175,9 +181,13 @@ class TestNeutronOVSUtils(CharmTestCase):
         self.os_release.return_value = 'icehouse'
         _head_pkgs.return_value = head_pkg
         pkg_list = nutils.determine_packages()
-        expect = ['neutron-plugin-openvswitch-agent', head_pkg,
-                  'neutron-metadata-agent', 'neutron-dhcp-agent']
-        self.assertItemsEqual(pkg_list, expect)
+        expect = [
+            head_pkg,
+            'neutron-plugin-openvswitch-agent',
+            'neutron-dhcp-agent',
+            'neutron-metadata-agent',
+        ]
+        self.assertEqual(pkg_list, expect)
 
     @patch.object(nutils, 'use_dvr')
     @patch.object(nutils, 'git_install_requested')
@@ -209,11 +219,11 @@ class TestNeutronOVSUtils(CharmTestCase):
         _head_pkgs.return_value = head_pkg
         pkg_list = nutils.determine_packages()
         expect = [
-            'neutron-plugin-sriov-agent',
-            'neutron-plugin-openvswitch-agent',
             head_pkg,
+            'neutron-plugin-openvswitch-agent',
+            'neutron-plugin-sriov-agent',
         ]
-        self.assertItemsEqual(pkg_list, expect)
+        self.assertEqual(pkg_list, expect)
 
     @patch.object(nutils, 'use_dvr')
     @patch.object(nutils, 'git_install_requested')
@@ -230,11 +240,11 @@ class TestNeutronOVSUtils(CharmTestCase):
         _head_pkgs.return_value = head_pkg
         pkg_list = nutils.determine_packages()
         expect = [
-            'neutron-sriov-agent',
+            head_pkg,
             'neutron-openvswitch-agent',
-            head_pkg
+            'neutron-sriov-agent',
         ]
-        self.assertItemsEqual(pkg_list, expect)
+        self.assertEqual(pkg_list, expect)
 
     @patch.object(nutils, 'use_dvr')
     def test_register_configs(self, _use_dvr):
@@ -256,7 +266,7 @@ class TestNeutronOVSUtils(CharmTestCase):
                  '/etc/neutron/plugins/ml2/ml2_conf.ini',
                  '/etc/default/openvswitch-switch',
                  '/etc/init/os-charm-phy-nic-mtu.conf']
-        self.assertItemsEqual(_regconfs.configs, confs)
+        self.assertEqual(_regconfs.configs, confs)
 
     @patch.object(nutils, 'use_dvr')
     def test_register_configs_mitaka(self, _use_dvr):
@@ -278,7 +288,7 @@ class TestNeutronOVSUtils(CharmTestCase):
                  '/etc/neutron/plugins/ml2/openvswitch_agent.ini',
                  '/etc/default/openvswitch-switch',
                  '/etc/init/os-charm-phy-nic-mtu.conf']
-        self.assertItemsEqual(_regconfs.configs, confs)
+        self.assertEqual(_regconfs.configs, confs)
 
     @patch.object(nutils, 'use_dvr')
     def test_resource_map(self, _use_dvr):
@@ -499,11 +509,11 @@ class TestNeutronOVSUtils(CharmTestCase):
     @patch('charmhelpers.contrib.openstack.context.config')
     def test_configure_ovs_dpdk(self, mock_config, _use_dvr,
                                 _resolve_dpdk_ports):
-        _resolve_dpdk_ports.return_value = {
-            '0000:001c.01': 'br-phynet1',
-            '0000:001c.02': 'br-phynet2',
-            '0000:001c.03': 'br-phynet3',
-        }
+        _resolve_dpdk_ports.return_value = OrderedDict([
+            ('0000:001c.01', 'br-phynet1'),
+            ('0000:001c.02', 'br-phynet2'),
+            ('0000:001c.03', 'br-phynet3'),
+        ])
         _use_dvr.return_value = True
         self.use_dpdk.return_value = True
         mock_config.side_effect = self.test_config.get
@@ -515,13 +525,15 @@ class TestNeutronOVSUtils(CharmTestCase):
             call('br-ex', 'netdev'),
             call('br-phynet1', 'netdev'),
             call('br-phynet2', 'netdev'),
-            call('br-phynet3', 'netdev'),
-        ])
+            call('br-phynet3', 'netdev')],
+            any_order=True
+        )
         self.dpdk_add_bridge_port.assert_has_calls([
             call('br-phynet1', 'dpdk0', port_type='dpdk'),
             call('br-phynet2', 'dpdk1', port_type='dpdk'),
-            call('br-phynet3', 'dpdk2', port_type='dpdk'),
-        ])
+            call('br-phynet3', 'dpdk2', port_type='dpdk')],
+            any_order=True
+        )
 
     @patch.object(neutron_ovs_context, 'SharedSecretContext')
     def test_get_shared_secret(self, _dvr_secret_ctxt):
@@ -559,16 +571,16 @@ class TestNeutronOVSUtils(CharmTestCase):
         add_user_to_group.assert_called_with('neutron', 'neutron')
         expected = [
             call('/var/lib/neutron', owner='neutron',
-                 group='neutron', perms=0755, force=False),
+                 group='neutron', perms=0o755, force=False),
             call('/var/lib/neutron/lock', owner='neutron',
-                 group='neutron', perms=0755, force=False),
+                 group='neutron', perms=0o755, force=False),
             call('/var/log/neutron', owner='neutron',
-                 group='neutron', perms=0755, force=False),
+                 group='neutron', perms=0o755, force=False),
         ]
         self.assertEqual(mkdir.call_args_list, expected)
         expected = [
             call('/var/log/neutron/server.log', '', owner='neutron',
-                 group='neutron', perms=0600),
+                 group='neutron', perms=0o600),
         ]
         self.assertEqual(write_file.call_args_list, expected)
 

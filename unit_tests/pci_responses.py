@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # flake8: noqa
-LSPCI = """
+LSPCI = b"""
 0000:00:00.0 "Host bridge" "Intel Corporation" "Haswell-E DMI2" -r02 "Intel Corporation" "Device 0000"
 0000:00:03.0 "PCI bridge" "Intel Corporation" "Haswell-E PCI Express Root Port 3" -r02 "" ""
 0000:00:03.2 "PCI bridge" "Intel Corporation" "Haswell-E PCI Express Root Port 3" -r02 "" ""

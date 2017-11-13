@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import glob
 import os
 import uuid
@@ -248,12 +249,12 @@ def resolve_dpdk_ports():
     '''
     ports = config('data-port')
     devices = PCINetDevices()
-    resolved_devices = {}
+    resolved_devices = collections.OrderedDict()
     db = kv()
     if ports:
         # NOTE: ordered dict of format {[mac]: bridge}
         portmap = parse_data_port_mappings(ports)
-        for mac, bridge in portmap.iteritems():
+        for mac, bridge in portmap.items():
             pcidev = devices.get_device_from_mac(mac)
             if pcidev:
                 # NOTE: store mac->pci allocation as post binding
@@ -311,7 +312,7 @@ class OVSDPDKDeviceContext(OSContextGenerator):
         '''
         num_cores = config('dpdk-socket-cores')
         mask = 0
-        for cores in numa_node_cores().itervalues():
+        for cores in numa_node_cores().values():
             for core in cores[:num_cores]:
                 mask = mask | 1 << core
         return format(mask, '#04x')

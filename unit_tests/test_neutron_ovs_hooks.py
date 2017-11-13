@@ -106,7 +106,7 @@ class NeutronOVSHooksTests(CharmTestCase):
             with open('unit_tests/%s' % sample, 'r') as f:
                 content = f.read()
 
-            with patch('__builtin__.open', mock_open(read_data=content),
+            with patch('builtins.open', mock_open(read_data=content),
                        create=True):
                 self._call_hook('upgrade-charm')
                 if should_migrate:

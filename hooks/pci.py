@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
 # Copyright 2016 Canonical Ltd
 #
@@ -196,7 +196,7 @@ class PCINetDevices(object):
 
     def get_pci_ethernet_addresses(self):
         cmd = ['lspci', '-m', '-D']
-        lspci_output = subprocess.check_output(cmd)
+        lspci_output = subprocess.check_output(cmd).decode('UTF-8')
         pci_addresses = []
         for line in lspci_output.split('\n'):
             columns = shlex.split(line)

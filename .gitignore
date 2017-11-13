@@ -10,4 +10,5 @@ tags
 .pydevproject
 func-results.json
 .stestr
+__pycache__
 joined-string

@@ -318,7 +318,7 @@ def register_configs(release=None):
     release = release or os_release('neutron-common', base='icehouse')
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
-    for cfg, rscs in resource_map().iteritems():
+    for cfg, rscs in resource_map().items():
         configs.register(cfg, rscs['contexts'])
     return configs
 
@@ -389,7 +389,7 @@ def restart_map():
     Constructs a restart map based on charm config settings and relation
     state.
     '''
-    return {k: v['services'] for k, v in resource_map().iteritems()}
+    return {k: v['services'] for k, v in resource_map().items()}
 
 
 def get_topics():
@@ -455,12 +455,12 @@ def configure_ovs():
     if not use_dpdk():
         portmaps = DataPortContext()()
         bridgemaps = parse_bridge_mappings(config('bridge-mappings'))
-        for br in bridgemaps.itervalues():
+        for br in bridgemaps.values():
             add_bridge(br, datapath_type)
             if not portmaps:
                 continue
 
-            for port, _br in portmaps.iteritems():
+            for port, _br in portmaps.items():
                 if _br == br:
                     if not is_linuxbridge_interface(port):
                         add_bridge_port(br, port, promisc=True)
@@ -471,7 +471,7 @@ def configure_ovs():
         #       with type 'dpdk'
         dpdk_bridgemaps = neutron_ovs_context.resolve_dpdk_ports()
         device_index = 0
-        for br in dpdk_bridgemaps.itervalues():
+        for br in dpdk_bridgemaps.values():
             add_bridge(br, datapath_type)
             dpdk_add_bridge_port(br, 'dpdk{}'.format(device_index),
                                  port_type='dpdk')
@@ -656,10 +656,10 @@ def git_pre_install():
     add_user_to_group('neutron', 'neutron')
 
     for d in dirs:
-        mkdir(d, owner='neutron', group='neutron', perms=0755, force=False)
+        mkdir(d, owner='neutron', group='neutron', perms=0o755, force=False)
 
     for l in logs:
-        write_file(l, '', owner='neutron', group='neutron', perms=0600)
+        write_file(l, '', owner='neutron', group='neutron', perms=0o600)
 
 
 def git_post_install(projects_yaml):
