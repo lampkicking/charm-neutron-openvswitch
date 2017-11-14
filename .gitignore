@@ -8,3 +8,6 @@ tags
 *.pyc
 .unit-state.db
 .pydevproject
+func-results.json
+.stestr
+joined-string

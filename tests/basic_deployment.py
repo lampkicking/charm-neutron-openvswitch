@@ -27,8 +27,7 @@ from charmhelpers.contrib.openstack.amulet.deployment import (
 # to go undetected.  Remove that & fixme.
 from charmhelpers.contrib.openstack.amulet.utils import (
     OpenStackAmuletUtils,
-    DEBUG, # flake8: noqa
-    ERROR
+    DEBUG,
 )
 
 # Use DEBUG to turn on debug logging
@@ -54,24 +53,20 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         self._deploy()
 
         u.log.info('Waiting on extended status checks...')
-        # We delay check for services running on neutron-openvswitch unit to
-        # after verification of sriov configuration. See comment in function
-        # test_301_neutron_sriov_config()
         self.exclude_services = ['neutron-openvswitch']
-        self._auto_wait_for_status(exclude_services=self.exclude_services)
-
-        self.d.sentry.wait()
+        self._wait_and_check(exclude_services=self.exclude_services)
         self._initialize_tests()
 
     def _add_services(self):
         """Add services
 
-           Add the services that we're testing, where neutron-openvswitch is local,
-           and the rest of the service are from lp branches that are
+           Add the services that we're testing, where neutron-openvswitch is
+           local, and the rest of the service are from lp branches that are
            compatible with the local charm (e.g. stable or next).
            """
-        # Services and relations which are present merely to satisfy required_interfaces
-        # and workload status are not inspected.  Fix me.  Inspect those too.
+        # Services and relations which are present merely to satisfy
+        # required_interfaces and workload status are not inspected.
+        # Fix me. Inspect those too.
         this_service = {'name': 'neutron-openvswitch'}
         other_services = [
             {'name': 'nova-compute'},
@@ -117,16 +112,20 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
                 openstack_origin_git = {
                     'repositories': [
                         {'name': 'requirements',
-                         'repository': 'git://github.com/openstack/requirements',
+                         'repository':
+                         'git://github.com/openstack/requirements',
                          'branch': branch},
                         {'name': 'neutron-fwaas',
-                         'repository': 'git://github.com/openstack/neutron-fwaas',
+                         'repository':
+                         'git://github.com/openstack/neutron-fwaas',
                          'branch': branch},
                         {'name': 'neutron-lbaas',
-                         'repository': 'git://github.com/openstack/neutron-lbaas',
+                         'repository':
+                         'git://github.com/openstack/neutron-lbaas',
                          'branch': branch},
                         {'name': 'neutron-vpnaas',
-                         'repository': 'git://github.com/openstack/neutron-vpnaas',
+                         'repository':
+                         'git://github.com/openstack/neutron-vpnaas',
                          'branch': branch},
                         {'name': 'neutron',
                          'repository': 'git://github.com/openstack/neutron',
@@ -156,7 +155,8 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
                     'http_proxy': amulet_http_proxy,
                     'https_proxy': amulet_http_proxy,
                 }
-            neutron_ovs_config['openstack-origin-git'] = yaml.dump(openstack_origin_git)
+            neutron_ovs_config['openstack-origin-git'] = (
+                yaml.dump(openstack_origin_git))
 
         neutron_ovs_config['enable-sriov'] = True
         neutron_ovs_config['sriov-device-mappings'] = 'physnet42:eth42'
@@ -180,6 +180,31 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         self.rabbitmq_sentry = self.d.sentry['rabbitmq-server'][0]
         self.neutron_api_sentry = self.d.sentry['neutron-api'][0]
         self.n_ovs_sentry = self.d.sentry['neutron-openvswitch'][0]
+
+    def _wait_and_check(self, sleep=5, exclude_services=[]):
+        """Extended wait and check helper
+
+        The tests for neutron-openvswitch are particularly sensitive to
+        timing races. This is partially due to the configuration changes being
+        set against neutron-api and needing to wait for the relation to update
+        neutron-openvswitch.
+
+        This helper will attempt to mitigate these race conditions. It is
+        purposefully redundant to attempt to handle the races.
+
+        This should be called after every self.d.configure() call.
+
+        :param sleep: Integer sleep value
+        :param excluded_services: List of excluded services not to be checked
+        """
+        u.log.debug('Extended wait and check ...')
+        time.sleep(sleep)
+        self.d.sentry.wait()
+        time.sleep(sleep)
+        self._auto_wait_for_status(exclude_services=exclude_services)
+        time.sleep(sleep)
+        self.d.sentry.wait()
+        u.log.debug('Wait and check completed.')
 
     def test_100_services(self):
         """Verify the expected services are running on the corresponding
@@ -234,13 +259,12 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         # disable sriov after validation of config file is complete.
         u.log.info('Disabling SR-IOV after verifying config file data...')
         configs = {
-            'neutron-openvswitch': { 'enable-sriov': False }
+            'neutron-openvswitch': {'enable-sriov': False}
         }
         super(NeutronOVSBasicDeployment, self)._configure_services(configs)
 
         u.log.info('Waiting for config-change to complete...')
-        self._auto_wait_for_status()
-        self.d.sentry.wait()
+        self._wait_and_check()
 
         u.log.debug('OK')
 
@@ -302,7 +326,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             conf = "/etc/neutron/plugins/ml2/ml2_conf.ini"
         for value in vpair:
             self.d.configure(service, {charm_key: value})
-            time.sleep(60)
+            self._wait_and_check()
             ret = u.validate_config_data(unit, conf, section,
                                          {config_file_key: value})
             msg = "Propagation error, expected %s=%s" % (config_file_key,
@@ -341,7 +365,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         self.d.configure('neutron-api', {'neutron-security-groups': 'True'})
         self.d.configure('neutron-openvswitch',
                          {'disable-security-groups': 'True'})
-        time.sleep(30)
+        self._wait_and_check()
         ret = u.validate_config_data(unit, conf, 'securitygroup',
                                      {'enable_security_group': 'False'})
         msg = "Propagation error, expected %s=%s" % ('enable_security_group',
@@ -350,7 +374,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         self.d.configure('neutron-openvswitch',
                          {'disable-security-groups': 'False'})
         self.d.configure('neutron-api', {'neutron-security-groups': 'True'})
-        time.sleep(30)
+        self._wait_and_check()
         ret = u.validate_config_data(unit, conf, 'securitygroup',
                                      {'enable_security_group': 'True'})
 
@@ -376,18 +400,19 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         u.log.debug('Making config change on {}...'.format(juju_service))
         mtime = u.get_sentry_time(sentry)
         self.d.configure(juju_service, set_alternate)
+        self._wait_and_check()
 
-        sleep_time = 60
+        sleep_time = 30
         for s, conf_file in services.iteritems():
             u.log.debug("Checking that service restarted: {}".format(s))
             if not u.validate_service_config_changed(sentry, mtime, s,
                                                      conf_file,
                                                      sleep_time=sleep_time):
                 self.d.configure(juju_service, set_default)
+                self._wait_and_check()
                 msg = "service {} didn't restart after config change".format(s)
                 amulet.raise_status(amulet.FAIL, msg=msg)
 
-        self.d.configure(juju_service, set_default)
         u.log.debug('OK')
 
     def test_400_enable_qos(self):
@@ -397,8 +422,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             set_default = {'enable-qos': 'False'}
             set_alternate = {'enable-qos': 'True'}
             self.d.configure('neutron-api', set_alternate)
-            time.sleep(60)
-            self._auto_wait_for_status(exclude_services=self.exclude_services)
+            self._wait_and_check()
             config = u._get_config(
                 unit,
                 '/etc/neutron/plugins/ml2/openvswitch_agent.ini')
@@ -410,6 +434,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             u.log.debug('Setting QoS back to {}'.format(
                 set_default['enable-qos']))
             self.d.configure('neutron-api', set_default)
+            self._wait_and_check()
             u.log.debug('OK')
 
     def test_910_pause_and_resume(self):
