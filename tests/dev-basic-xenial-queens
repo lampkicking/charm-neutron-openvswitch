@@ -14,10 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Amulet tests on a basic neutron-openvswitch deployment on zesty-ocata."""
+# NeutronOVSBasicDeployment
+"""Amulet tests on a basic neutron-openvswitch deployment on xenial-queens."""
 
 from basic_deployment import NeutronOVSBasicDeployment
 
 if __name__ == '__main__':
-    deployment = NeutronOVSBasicDeployment(series='zesty')
+    deployment = NeutronOVSBasicDeployment(series='xenial',
+                                           openstack='cloud:xenial-queens',
+                                           source='cloud:xenial-updates/queens')
     deployment.run_tests()
