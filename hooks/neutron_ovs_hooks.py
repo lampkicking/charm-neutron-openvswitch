@@ -21,7 +21,6 @@ from copy import deepcopy
 from charmhelpers.contrib.openstack.utils import (
     config_value_changed,
     git_install_requested,
-    os_requires_version,
     pausable_restart_on_change as restart_on_change,
 )
 
@@ -42,7 +41,6 @@ from neutron_ovs_utils import (
     configure_ovs,
     configure_sriov,
     git_install,
-    get_topics,
     get_shared_secret,
     register_configs,
     restart_map,
@@ -99,8 +97,6 @@ def config_changed():
     # NOTE(fnordahl): configure_sriov must be run after CONFIGS.write_all()
     # to allow us to enable boot time execution of init script
     configure_sriov()
-    for rid in relation_ids('zeromq-configuration'):
-        zeromq_configuration_relation_joined(rid)
     for rid in relation_ids('neutron-plugin'):
         neutron_plugin_joined(relation_id=rid)
 
@@ -152,20 +148,6 @@ def amqp_changed():
     if 'amqp' not in CONFIGS.complete_contexts():
         log('amqp relation incomplete. Peer not ready?')
         return
-    CONFIGS.write_all()
-
-
-@hooks.hook('zeromq-configuration-relation-joined')
-@os_requires_version('kilo', 'neutron-common')
-def zeromq_configuration_relation_joined(relid=None):
-    relation_set(relation_id=relid,
-                 topics=" ".join(get_topics()),
-                 users="neutron")
-
-
-@hooks.hook('zeromq-configuration-relation-changed')
-@restart_on_change(restart_map(), stopstart=True)
-def zeromq_configuration_relation_changed():
     CONFIGS.write_all()
 
 

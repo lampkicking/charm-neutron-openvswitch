@@ -119,10 +119,8 @@ class NeutronOVSHooksTests(CharmTestCase):
     def test_config_changed(self, git_requested):
         git_requested.return_value = False
         self.relation_ids.return_value = ['relid']
-        _zmq_joined = self.patch('zeromq_configuration_relation_joined')
         self._call_hook('config-changed')
         self.assertTrue(self.CONFIGS.write_all.called)
-        self.assertTrue(_zmq_joined.called_with('relid'))
         self.configure_ovs.assert_called_with()
         self.configure_sriov.assert_called_with()
 
@@ -131,7 +129,6 @@ class NeutronOVSHooksTests(CharmTestCase):
     def test_config_changed_git(self, config_val_changed, git_requested):
         git_requested.return_value = True
         self.relation_ids.return_value = ['relid']
-        _zmq_joined = self.patch('zeromq_configuration_relation_joined')
         openstack_origin_git = {
             'repositories': [
                 {'name': 'requirements',
@@ -149,7 +146,6 @@ class NeutronOVSHooksTests(CharmTestCase):
         self._call_hook('config-changed')
         self.git_install.assert_called_with(projects_yaml)
         self.assertTrue(self.CONFIGS.write_all.called)
-        self.assertTrue(_zmq_joined.called_with('relid'))
         self.configure_ovs.assert_called_with()
 
     @patch.object(hooks, 'git_install_requested')

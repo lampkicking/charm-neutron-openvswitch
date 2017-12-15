@@ -392,18 +392,6 @@ def restart_map():
     return {k: v['services'] for k, v in resource_map().items()}
 
 
-def get_topics():
-    topics = []
-    topics.append('q-agent-notifier-port-update')
-    topics.append('q-agent-notifier-network-delete')
-    topics.append('q-agent-notifier-tunnel-update')
-    topics.append('q-agent-notifier-security_group-update')
-    topics.append('q-agent-notifier-dvr-update')
-    if context.NeutronAPIContext()()['l2_population']:
-        topics.append('q-agent-notifier-l2population-update')
-    return topics
-
-
 def services():
     """Returns a list of (unique) services associate with this charm
     Note that we drop the os-charm-phy-nic-mtu service as it's not an actual

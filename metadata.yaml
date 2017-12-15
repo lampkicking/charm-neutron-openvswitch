@@ -30,10 +30,10 @@ provides:
   neutron-control:
     interface: service-control
 requires:
+  juju-info:
+    interface: juju-info
+    scope: container
   amqp:
     interface: rabbitmq
   neutron-plugin-api:
     interface: neutron-plugin-api
-  zeromq-configuration:
-    interface: zeromq-configuration
-    scope: container
