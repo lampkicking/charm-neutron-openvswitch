@@ -1,5 +1,3 @@
-git-reinstall:
-    description: Reinstall neutron-openvswitch from the openstack-origin-git repositories.
 pause:
     description: Pause the neutron-openvswitch unit.  This action will stop neutron-openvswitch services.
 resume:

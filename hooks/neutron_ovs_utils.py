@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import shutil
 from itertools import chain
 import subprocess
 
@@ -22,12 +21,6 @@ from copy import deepcopy
 
 from charmhelpers.contrib.openstack import context, templating
 from charmhelpers.contrib.openstack.utils import (
-    git_clone_and_install,
-    git_default_repos,
-    git_generate_systemd_init_files,
-    git_install_requested,
-    git_pip_venv_dir,
-    git_src_dir,
     pause_unit,
     resume_unit,
     make_assess_status_func,
@@ -47,7 +40,6 @@ from charmhelpers.contrib.network.ovs import (
     full_restart,
 )
 from charmhelpers.core.hookenv import (
-    charm_dir,
     config,
     status_set,
     log,
@@ -63,19 +55,12 @@ from charmhelpers.contrib.openstack.context import (
     WorkerConfigContext,
 )
 from charmhelpers.core.host import (
-    adduser,
-    add_group,
-    add_user_to_group,
     lsb_release,
-    mkdir,
     service,
     service_restart,
     service_running,
-    write_file,
     CompareHostReleases,
 )
-
-from charmhelpers.core.templating import render
 
 from charmhelpers.fetch import (
     apt_install,
@@ -95,33 +80,6 @@ from pci import PCINetDevices
 REQUIRED_INTERFACES = {
     'messaging': ['amqp', 'zeromq-configuration'],
 }
-
-BASE_GIT_PACKAGES = [
-    'ipset',
-    'libffi-dev',
-    'libssl-dev',
-    'libxml2-dev',
-    'libxslt1-dev',
-    'libyaml-dev',
-    'openstack-pkg-tools',
-    'openvswitch-switch',
-    'python-dev',
-    'python-pip',
-    'python-setuptools',
-    'zlib1g-dev',
-]
-
-# ubuntu packages that should not be installed when deploying from git
-GIT_PACKAGE_BLACKLIST = [
-    'neutron-l3-agent',
-    'neutron-metadata-agent',
-    'neutron-server',
-    'neutron-plugin-openvswitch',
-    'neutron-plugin-openvswitch-agent',
-    'neutron-openvswitch',
-    'neutron-openvswitch-agent',
-    'neutron-openvswitch-agent',
-]
 
 VERSION_PACKAGE = 'neutron-common'
 NOVA_CONF_DIR = "/etc/nova"
@@ -288,13 +246,6 @@ def determine_packages():
     if enable_local_dhcp():
         pkgs.extend(DHCP_PACKAGES)
         pkgs.extend(METADATA_PACKAGES)
-
-    if git_install_requested():
-        pkgs.extend(BASE_GIT_PACKAGES)
-        # don't include packages that will be installed from git
-        for p in GIT_PACKAGE_BLACKLIST:
-            if p in pkgs:
-                pkgs.remove(p)
 
     cmp_release = CompareOpenStackReleases(
         os_release('neutron-common', base='icehouse'))
@@ -615,134 +566,6 @@ def enable_nova_metadata():
 
 def enable_local_dhcp():
     return config('enable-local-dhcp-and-metadata')
-
-
-def git_install(projects_yaml):
-    """Perform setup, and install git repos specified in yaml parameter."""
-    status_set('maintenance', 'running git install')
-    if git_install_requested():
-        git_pre_install()
-        projects_yaml = git_default_repos(projects_yaml)
-        git_clone_and_install(projects_yaml, core_project='neutron')
-        git_post_install(projects_yaml)
-
-
-def git_pre_install():
-    """Perform pre-install setup."""
-    dirs = [
-        '/var/lib/neutron',
-        '/var/lib/neutron/lock',
-        '/var/log/neutron',
-    ]
-
-    logs = [
-        '/var/log/neutron/server.log',
-    ]
-
-    adduser('neutron', shell='/bin/bash', system_user=True)
-    add_group('neutron', system_group=True)
-    add_user_to_group('neutron', 'neutron')
-
-    for d in dirs:
-        mkdir(d, owner='neutron', group='neutron', perms=0o755, force=False)
-
-    for l in logs:
-        write_file(l, '', owner='neutron', group='neutron', perms=0o600)
-
-
-def git_post_install(projects_yaml):
-    """Perform post-install setup."""
-    src_etc = os.path.join(git_src_dir(projects_yaml, 'neutron'), 'etc')
-    configs = [
-        {'src': src_etc,
-         'dest': '/etc/neutron'},
-        {'src': os.path.join(src_etc, 'neutron/plugins'),
-         'dest': '/etc/neutron/plugins'},
-        {'src': os.path.join(src_etc, 'neutron/rootwrap.d'),
-         'dest': '/etc/neutron/rootwrap.d'},
-    ]
-
-    for c in configs:
-        if os.path.exists(c['dest']):
-            shutil.rmtree(c['dest'])
-        shutil.copytree(c['src'], c['dest'])
-
-    # NOTE(coreycb): Need to find better solution than bin symlinks.
-    symlinks = [
-        {'src': os.path.join(git_pip_venv_dir(projects_yaml),
-                             'bin/neutron-rootwrap'),
-         'link': '/usr/local/bin/neutron-rootwrap'},
-    ]
-
-    for s in symlinks:
-        if os.path.lexists(s['link']):
-            os.remove(s['link'])
-        os.symlink(s['src'], s['link'])
-
-    render('git/neutron_sudoers', '/etc/sudoers.d/neutron_sudoers', {},
-           perms=0o440)
-
-    bin_dir = os.path.join(git_pip_venv_dir(projects_yaml), 'bin')
-    cmp_os_release = CompareOpenStackReleases(os_release('neutron-common'))
-    # Use systemd init units/scripts from ubuntu wily onward
-    _release = lsb_release()['DISTRIB_CODENAME']
-    if CompareHostReleases(_release) >= 'wily':
-        templates_dir = os.path.join(charm_dir(), 'templates/git')
-        daemons = ['neutron-openvswitch-agent', 'neutron-ovs-cleanup']
-        for daemon in daemons:
-            neutron_ovs_context = {
-                'daemon_path': os.path.join(bin_dir, daemon),
-            }
-            filename = daemon
-            if daemon == 'neutron-openvswitch-agent':
-                if cmp_os_release < 'mitaka':
-                    filename = 'neutron-plugin-openvswitch-agent'
-            template_file = 'git/{}.init.in.template'.format(filename)
-            init_in_file = '{}.init.in'.format(filename)
-            render(template_file, os.path.join(templates_dir, init_in_file),
-                   neutron_ovs_context, perms=0o644)
-        git_generate_systemd_init_files(templates_dir)
-
-        for daemon in daemons:
-            filename = daemon
-            if daemon == 'neutron-openvswitch-agent':
-                if cmp_os_release < 'mitaka':
-                    filename = 'neutron-plugin-openvswitch-agent'
-            service('enable', filename)
-    else:
-        neutron_ovs_agent_context = {
-            'service_description': 'Neutron OpenvSwitch Plugin Agent',
-            'charm_name': 'neutron-openvswitch',
-            'process_name': 'neutron-openvswitch-agent',
-            'executable_name': os.path.join(bin_dir,
-                                            'neutron-openvswitch-agent'),
-            'cleanup_process_name': 'neutron-ovs-cleanup',
-            'plugin_config': '/etc/neutron/plugins/ml2/ml2_conf.ini',
-            'log_file': '/var/log/neutron/openvswitch-agent.log',
-        }
-
-        neutron_ovs_cleanup_context = {
-            'service_description': 'Neutron OpenvSwitch Cleanup',
-            'charm_name': 'neutron-openvswitch',
-            'process_name': 'neutron-ovs-cleanup',
-            'executable_name': os.path.join(bin_dir, 'neutron-ovs-cleanup'),
-            'log_file': '/var/log/neutron/ovs-cleanup.log',
-        }
-
-        if cmp_os_release < 'mitaka':
-            render('git/upstart/neutron-plugin-openvswitch-agent.upstart',
-                   '/etc/init/neutron-plugin-openvswitch-agent.conf',
-                   neutron_ovs_agent_context, perms=0o644)
-        else:
-            render('git/upstart/neutron-plugin-openvswitch-agent.upstart',
-                   '/etc/init/neutron-openvswitch-agent.conf',
-                   neutron_ovs_agent_context, perms=0o644)
-        render('git/upstart/neutron-ovs-cleanup.upstart',
-               '/etc/init/neutron-ovs-cleanup.conf',
-               neutron_ovs_cleanup_context, perms=0o644)
-
-    if not is_unit_paused_set():
-        service_restart('neutron-plugin-openvswitch-agent')
 
 
 def assess_status(configs):

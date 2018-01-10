@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from mock import MagicMock, patch, mock_open
-import yaml
 
 from test_utils import CharmTestCase
 
@@ -36,7 +35,6 @@ TO_PATCH = [
     'config',
     'CONFIGS',
     'get_shared_secret',
-    'git_install',
     'log',
     'relation_ids',
     'relation_set',
@@ -65,31 +63,9 @@ class NeutronOVSHooksTests(CharmTestCase):
         hooks.hooks.execute([
             'hooks/{}'.format(hookname)])
 
-    @patch.object(hooks, 'git_install_requested')
-    def test_install_hook(self, git_requested):
-        git_requested.return_value = False
+    def test_install_hook(self):
         self._call_hook('install')
         self.install_packages.assert_called_with()
-
-    @patch.object(hooks, 'git_install_requested')
-    def test_install_hook_git(self, git_requested):
-        git_requested.return_value = True
-        openstack_origin_git = {
-            'repositories': [
-                {'name': 'requirements',
-                 'repository': 'git://git.openstack.org/openstack/requirements',  # noqa
-                 'branch': 'stable/juno'},
-                {'name': 'neutron',
-                 'repository': 'git://git.openstack.org/openstack/neutron',
-                 'branch': 'stable/juno'}
-            ],
-            'directory': '/mnt/openstack-git',
-        }
-        projects_yaml = yaml.dump(openstack_origin_git)
-        self.test_config.set('openstack-origin-git', projects_yaml)
-        self._call_hook('install')
-        self.install_packages.assert_called_with()
-        self.git_install.assert_called_with(projects_yaml)
 
     @patch.object(hooks, 'restart_on_change')
     def test_migrate_ovs_default_file(self, mock_restart):
@@ -115,42 +91,7 @@ class NeutronOVSHooksTests(CharmTestCase):
                     self.CONFIGS.write.assert_not_called()
                 self.assertEqual(0, mock_restart.call_count)
 
-    @patch.object(hooks, 'git_install_requested')
-    def test_config_changed(self, git_requested):
-        git_requested.return_value = False
-        self.relation_ids.return_value = ['relid']
-        self._call_hook('config-changed')
-        self.assertTrue(self.CONFIGS.write_all.called)
-        self.configure_ovs.assert_called_with()
-        self.configure_sriov.assert_called_with()
-
-    @patch.object(hooks, 'git_install_requested')
-    @patch.object(hooks, 'config_value_changed')
-    def test_config_changed_git(self, config_val_changed, git_requested):
-        git_requested.return_value = True
-        self.relation_ids.return_value = ['relid']
-        openstack_origin_git = {
-            'repositories': [
-                {'name': 'requirements',
-                 'repository':
-                 'git://git.openstack.org/openstack/requirements',
-                 'branch': 'stable/juno'},
-                {'name': 'neutron',
-                 'repository': 'git://git.openstack.org/openstack/neutron',
-                 'branch': 'stable/juno'}
-            ],
-            'directory': '/mnt/openstack-git',
-        }
-        projects_yaml = yaml.dump(openstack_origin_git)
-        self.test_config.set('openstack-origin-git', projects_yaml)
-        self._call_hook('config-changed')
-        self.git_install.assert_called_with(projects_yaml)
-        self.assertTrue(self.CONFIGS.write_all.called)
-        self.configure_ovs.assert_called_with()
-
-    @patch.object(hooks, 'git_install_requested')
-    def test_config_changed_dvr(self, git_requested):
-        git_requested.return_value = False
+    def test_config_changed_dvr(self):
         self._call_hook('config-changed')
         self.install_packages.assert_called_with()
         self.assertTrue(self.CONFIGS.write_all.called)
@@ -175,12 +116,10 @@ class NeutronOVSHooksTests(CharmTestCase):
         _plugin_joined.assert_called_with(relation_id='rid')
         self.purge_packages.assert_called_with(['neutron-l3-agent'])
 
-    @patch.object(hooks, 'git_install_requested')
-    def test_neutron_plugin_joined_dvr_dhcp(self, git_requested):
+    def test_neutron_plugin_joined_dvr_dhcp(self):
         self.enable_nova_metadata.return_value = True
         self.enable_local_dhcp.return_value = True
         self.use_dvr.return_value = True
-        git_requested.return_value = False
         self.get_shared_secret.return_value = 'secret'
         self._call_hook('neutron-plugin-relation-joined')
         rel_data = {
@@ -192,12 +131,10 @@ class NeutronOVSHooksTests(CharmTestCase):
         )
         self.assertTrue(self.install_packages.called)
 
-    @patch.object(hooks, 'git_install_requested')
-    def test_neutron_plugin_joined_dvr_nodhcp(self, git_requested):
+    def test_neutron_plugin_joined_dvr_nodhcp(self):
         self.enable_nova_metadata.return_value = True
         self.enable_local_dhcp.return_value = False
         self.use_dvr.return_value = True
-        git_requested.return_value = False
         self.get_shared_secret.return_value = 'secret'
         self._call_hook('neutron-plugin-relation-joined')
         rel_data = {
@@ -210,12 +147,10 @@ class NeutronOVSHooksTests(CharmTestCase):
         self.purge_packages.assert_called_with(['neutron-dhcp-agent'])
         self.assertFalse(self.install_packages.called)
 
-    @patch.object(hooks, 'git_install_requested')
-    def test_neutron_plugin_joined_nodvr_nodhcp(self, git_requested):
+    def test_neutron_plugin_joined_nodvr_nodhcp(self):
         self.enable_nova_metadata.return_value = False
         self.enable_local_dhcp.return_value = False
         self.use_dvr.return_value = False
-        git_requested.return_value = False
         self.get_shared_secret.return_value = 'secret'
         self._call_hook('neutron-plugin-relation-joined')
         rel_data = {

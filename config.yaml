@@ -12,40 +12,6 @@ options:
     default: False
     description: |
       Setting this to True will allow supporting services to log to syslog.
-  openstack-origin-git:
-    type: string
-    default:
-    description: |
-      Specifies a default OpenStack release name, or a YAML dictionary
-      listing the git repositories to install from.
-      .
-      The default Openstack release name may be one of the following, where
-      the corresponding OpenStack github branch will be used:
-        * liberty
-        * mitaka
-        * newton
-        * master
-      .
-      The YAML must minimally include requirements, neutron-fwaas,
-      neutron-lbaas, neutron-vpnaas, and neutron repositories, and may
-      also include repositories for other dependencies:
-        repositories:
-        - {name: requirements,
-           repository: 'git://github.com/openstack/requirements',
-           branch: master}
-        - {name: neutron-fwaas,
-           repository: 'git://github.com/openstack/neutron-fwaas',
-           branch: master}
-        - {name: neutron-lbaas,
-           repository: 'git://github.com/openstack/neutron-lbaas',
-           branch: master}
-        - {name: neutron-vpnaas,
-           repository: 'git://github.com/openstack/neutron-vpnaas',
-           branch: master}
-        - {name: neutron,
-           repository: 'git://github.com/openstack/neutron',
-           branch: master}
-        release: master
   rabbit-user:
     type: string
     default: neutron

@@ -19,8 +19,6 @@ import sys
 from copy import deepcopy
 
 from charmhelpers.contrib.openstack.utils import (
-    config_value_changed,
-    git_install_requested,
     pausable_restart_on_change as restart_on_change,
 )
 
@@ -40,7 +38,6 @@ from neutron_ovs_utils import (
     OVS_DEFAULT,
     configure_ovs,
     configure_sriov,
-    git_install,
     get_shared_secret,
     register_configs,
     restart_map,
@@ -59,7 +56,6 @@ CONFIGS = register_configs()
 @hooks.hook()
 def install():
     install_packages()
-    git_install(config('openstack-origin-git'))
 
 
 # NOTE(wolsen): Do NOT add restart_on_change decorator without consideration
@@ -88,9 +84,6 @@ def upgrade_charm():
 @restart_on_change(restart_map())
 def config_changed():
     install_packages()
-    if git_install_requested():
-        if config_value_changed('openstack-origin-git'):
-            git_install(config('openstack-origin-git'))
 
     configure_ovs()
     CONFIGS.write_all()
