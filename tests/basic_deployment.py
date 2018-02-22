@@ -141,7 +141,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         """
         u.log.debug('Extended wait and check ...')
         time.sleep(sleep)
-        self.d.sentry.wait()
+        self.d.sentry.wait(timeout=900)
         time.sleep(sleep)
         self._auto_wait_for_status(exclude_services=exclude_services)
         time.sleep(sleep)
