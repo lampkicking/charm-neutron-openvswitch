@@ -53,6 +53,8 @@ TO_PATCH = [
     'os_application_version_set',
     'remote_restart',
     'PCINetDevices',
+    'enable_ipfix',
+    'disable_ipfix',
 ]
 
 head_pkg = 'linux-headers-3.15.0-5-generic'
@@ -498,6 +500,18 @@ class TestNeutronOVSUtils(CharmTestCase):
             call('br-phynet3', 'dpdk2', port_type='dpdk')],
             any_order=True
         )
+
+    @patch('charmhelpers.contrib.openstack.context.config')
+    def test_configure_ovs_enable_ipfix(self, mock_config):
+        mock_config.side_effect = self.test_config.get
+        self.config.side_effect = self.test_config.get
+        self.test_config.set('plugin', 'ovs')
+        self.test_config.set('ipfix-target', '127.0.0.1:80')
+        nutils.configure_ovs()
+        self.enable_ipfix.assert_has_calls([
+            call('br-int', '127.0.0.1:80'),
+            call('br-ex', '127.0.0.1:80'),
+        ])
 
     @patch.object(neutron_ovs_context, 'SharedSecretContext')
     def test_get_shared_secret(self, _dvr_secret_ctxt):

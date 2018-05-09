@@ -212,3 +212,9 @@ options:
       segments, a space-delimited list of a.b.c.d/x can be provided
       The address of the first network found to have an address
       configured will be used.
+  ipfix-target:
+    type: string
+    default: 
+    description: |
+      IPFIX target wit the format "IP_Address:Port". This will enable IPFIX
+      exporting on all OVS bridges to the target, including br-int and br-ext.
