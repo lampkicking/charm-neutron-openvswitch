@@ -278,9 +278,12 @@ def parse_cpu_list(cpulist):
     cores = []
     ranges = cpulist.split(',')
     for cpu_range in ranges:
-        cpu_min_max = cpu_range.split('-')
-        cores += range(int(cpu_min_max[0]),
-                       int(cpu_min_max[1]) + 1)
+        if "-" in cpu_range:
+            cpu_min_max = cpu_range.split('-')
+            cores += range(int(cpu_min_max[0]),
+                           int(cpu_min_max[1]) + 1)
+        else:
+            cores.append(int(cpu_range))
     return cores
 
 

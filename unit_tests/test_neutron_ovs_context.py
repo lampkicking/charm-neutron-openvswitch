@@ -495,6 +495,7 @@ class MockPCIDevice(object):
 
 TEST_CPULIST_1 = "0-3"
 TEST_CPULIST_2 = "0-7,16-23"
+TEST_CPULIST_3 = "0,4,8,12,16,20,24"
 DPDK_DATA_PORTS = (
     "br-phynet3:fe:16:41:df:23:fe "
     "br-phynet1:fe:16:41:df:23:fd "
@@ -518,6 +519,8 @@ class TestDPDKUtils(CharmTestCase):
         self.assertEqual(context.parse_cpu_list(TEST_CPULIST_2),
                          [0, 1, 2, 3, 4, 5, 6, 7,
                           16, 17, 18, 19, 20, 21, 22, 23])
+        self.assertEqual(context.parse_cpu_list(TEST_CPULIST_3),
+                         [0, 4, 8, 12, 16, 20, 24])
 
     @patch.object(context, 'parse_cpu_list', wraps=context.parse_cpu_list)
     def test_numa_node_cores(self, _parse_cpu_list):
