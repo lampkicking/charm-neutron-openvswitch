@@ -393,6 +393,7 @@ def configure_ovs():
     if ext_port_ctx and ext_port_ctx['ext_port']:
         add_bridge_port(EXT_BRIDGE, ext_port_ctx['ext_port'])
 
+    bridgemaps = None
     if not use_dpdk():
         portmaps = DataPortContext()()
         bridgemaps = parse_bridge_mappings(config('bridge-mappings'))
@@ -420,7 +421,8 @@ def configure_ovs():
 
     target = config('ipfix-target')
     bridges = [INT_BRIDGE, EXT_BRIDGE]
-    bridges.extend(bridgemaps.values())
+    if bridgemaps:
+        bridges.extend(bridgemaps.values())
 
     if target:
         for bridge in bridges:

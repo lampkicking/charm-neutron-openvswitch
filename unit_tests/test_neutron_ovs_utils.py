@@ -501,11 +501,12 @@ class TestNeutronOVSUtils(CharmTestCase):
             any_order=True
         )
 
+    @patch.object(nutils, 'use_dvr')
     @patch('charmhelpers.contrib.openstack.context.config')
-    def test_configure_ovs_enable_ipfix(self, mock_config):
+    def test_configure_ovs_enable_ipfix(self, mock_config, mock_use_dvr):
+        mock_use_dvr.return_value = False
         mock_config.side_effect = self.test_config.get
         self.config.side_effect = self.test_config.get
-        self.test_config.set('plugin', 'ovs')
         self.test_config.set('ipfix-target', '127.0.0.1:80')
         nutils.configure_ovs()
         self.enable_ipfix.assert_has_calls([
