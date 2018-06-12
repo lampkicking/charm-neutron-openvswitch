@@ -426,13 +426,24 @@ def configure_ovs():
     else:
         # NOTE: when in dpdk mode, add based on pci bus order
         #       with type 'dpdk'
-        bridgemaps = neutron_ovs_context.resolve_dpdk_ports()
+        bridgemaps = neutron_ovs_context.resolve_dpdk_bridges()
+        bondmaps = neutron_ovs_context.resolve_dpdk_bonds()
         device_index = 0
+        bridge_bond_map = DPDKBridgeBondMap()
         for pci_address, br in bridgemaps.items():
             add_bridge(br, datapath_type)
-            dpdk_add_bridge_port(br, 'dpdk{}'.format(device_index),
-                                 pci_address)
+            portname = 'dpdk{}'.format(device_index)
+            if pci_address in bondmaps:
+                bond = bondmaps[pci_address]
+                bridge_bond_map.add_port(br, bond, portname, pci_address)
+            else:
+                dpdk_add_bridge_port(br, portname,
+                                     pci_address)
             device_index += 1
+
+        for br, bonds in bridge_bond_map.items():
+            for bond, t in bonds.items():
+                dpdk_add_bridge_bond(br, bond, *t)
 
     target = config('ipfix-target')
     bridges = [INT_BRIDGE, EXT_BRIDGE]
@@ -606,6 +617,24 @@ def dpdk_add_bridge_port(name, port, pci_address=None):
     subprocess.check_call(cmd)
 
 
+def dpdk_add_bridge_bond(bridge_name, bond_name, port_list, pci_address_list):
+    ''' Add ports to a bond attached to the named openvswitch bridge '''
+    if ovs_has_late_dpdk_init():
+        cmd = ["ovs-vsctl", "--may-exist",
+               "add-bond", bridge_name, bond_name]
+        for port in port_list:
+            cmd.append(port)
+        id = 0
+        for pci_address in pci_address_list:
+            cmd.extend(["--", "set", "Interface", port_list[id],
+                        "type=dpdk",
+                        "options:dpdk-devargs={}".format(pci_address)])
+            id += 1
+    else:
+        raise Exception("Bond's not supported for OVS pre-2.6.0")
+    subprocess.check_call(cmd)
+
+
 def enable_nova_metadata():
     return use_dvr() or enable_local_dhcp()
 
@@ -685,3 +714,20 @@ def _pause_resume_helper(f, configs):
     f(assess_status_func(configs),
       services=services(),
       ports=None)
+
+
+class DPDKBridgeBondMap():
+
+    def __init__(self):
+        self.map = {}
+
+    def add_port(self, bridge, bond, portname, pci_address):
+        if bridge not in self.map:
+            self.map[bridge] = {}
+        if bond not in self.map[bridge]:
+            self.map[bridge][bond] = ([], [])
+        self.map[bridge][bond][0].append(portname)
+        self.map[bridge][bond][1].append(pci_address)
+
+    def items(self):
+        return list(self.map.items())
