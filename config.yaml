@@ -46,6 +46,25 @@ options:
       bridge as specified in data-port.
       .
       This option is supported only when enable-dpdk is true.
+  dpdk-bond-config:
+    type: string
+    default: ":balance-tcp:active:fast"
+    description: |
+      Space delimited list of bond:mode:lacp:lacp-time, where the arguments meaning is:
+      .
+          * bond - the bond name. If not specified the configuration applies to all bonds
+          * mode - the bond mode of operation. Possible values are:
+            - active-backup - No load balancing is offered in this mode and only one of
+                              the member ports is active/used at a time.
+            - balance-slb - Considered as a static load-balancing mode. Traffic is load
+                            balanced between member ports based on the source MAC and VLAN.
+            - balance-tcp - This is the preferred bonding mode. It offers traffic load
+                            balancing based on 5-tuple header fields. LACP must be enabled
+                            at both endpoints to use this mode. The aggregate link will
+                            fall back to default mode (active-passive) in the event of LACP
+                            negotiation failure.
+          * lacp - active, passive or off
+          * lacp-time - fast or slow. LACP negotiation time interval - 30 ms or 1 second
   disable-security-groups:
     type: boolean
     default: false

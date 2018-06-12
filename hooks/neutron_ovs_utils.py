@@ -441,9 +441,11 @@ def configure_ovs():
                                      pci_address)
             device_index += 1
 
+        bond_configs = DPDKBondsConfig()
         for br, bonds in bridge_bond_map.items():
             for bond, t in bonds.items():
                 dpdk_add_bridge_bond(br, bond, *t)
+                dpdk_set_bond_config(bond, bond_configs.get_bond_config(bond))
 
     target = config('ipfix-target')
     bridges = [INT_BRIDGE, EXT_BRIDGE]
@@ -635,6 +637,21 @@ def dpdk_add_bridge_bond(bridge_name, bond_name, port_list, pci_address_list):
     subprocess.check_call(cmd)
 
 
+def dpdk_set_bond_config(bond_name, config):
+    if ovs_has_late_dpdk_init():
+        cmd = ["ovs-vsctl",
+               "--", "set", "port", bond_name,
+               "bond_mode={}".format(config['mode']),
+               "--", "set", "port", bond_name,
+               "lacp={}".format(config['lacp']),
+               "--", "set", "port", bond_name,
+               "other_config:lacp-time=={}".format(config['lacp-time']),
+               ]
+    else:
+        raise Exception("Bonds are not supported for OVS pre-2.6.0")
+    subprocess.check_call(cmd)
+
+
 def enable_nova_metadata():
     return use_dvr() or enable_local_dhcp()
 
@@ -731,3 +748,75 @@ class DPDKBridgeBondMap():
 
     def items(self):
         return list(self.map.items())
+
+
+class DPDKBondsConfig():
+    '''
+    A class to parse dpdk-bond-config into a dictionary and
+    provide a convenient config get interface.
+    '''
+
+    DEFAUL_LACP_CONFIG = {
+        'mode': 'balance-tcp',
+        'lacp': 'active',
+        'lacp-time': 'fast'
+    }
+    ALL_BONDS = 'ALL_BONDS'
+
+    BOND_MODES = ['active-backup', 'balance-slb', 'balance-tcp']
+    BOND_LACP = ['active', 'passive', 'off']
+    BOND_LACP_TIME = ['fast', 'slow']
+
+    def __init__(self):
+
+        self.lacp_config = {
+            self.ALL_BONDS: deepcopy(self.DEFAUL_LACP_CONFIG)
+        }
+
+        lacp_config = config('dpdk-bond-config')
+        if lacp_config:
+            lacp_config_map = lacp_config.split()
+            for entry in lacp_config_map:
+                bond, entry = self._partition_entry(entry)
+                if not bond:
+                    bond = self.ALL_BONDS
+
+                mode, entry = self._partition_entry(entry)
+                if not mode:
+                    mode = self.DEFAUL_LACP_CONFIG['mode']
+                assert mode in self.BOND_MODES, \
+                    "Bond mode {} is invalid".format(mode)
+
+                lacp, entry = self._partition_entry(entry)
+                if not lacp:
+                    lacp = self.DEFAUL_LACP_CONFIG['lacp']
+                assert lacp in self.BOND_LACP, \
+                    "Bond lacp {} is invalid".format(lacp)
+
+                lacp_time, entry = self._partition_entry(entry)
+                if not lacp_time:
+                    lacp_time = self.DEFAUL_LACP_CONFIG['lacp-time']
+                assert lacp_time in self.BOND_LACP_TIME, \
+                    "Bond lacp-time {} is invalid".format(lacp_time)
+
+                self.lacp_config[bond] = {
+                    'mode': mode,
+                    'lacp': lacp,
+                    'lacp-time': lacp_time
+                }
+
+    def _partition_entry(self, entry):
+        t = entry.partition(":")
+        return t[0], t[2]
+
+    def get_bond_config(self, bond):
+        '''
+        Get the LACP configuration for a bond
+
+        :param bond: the bond name
+        :return: a dictionary with the configuration of the
+        '''
+        if bond not in self.lacp_config:
+            return self.lacp_config[self.ALL_BONDS]
+
+        return self.lacp_config[bond]

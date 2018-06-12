@@ -35,6 +35,7 @@ TO_PATCH = [
     'is_linuxbridge_interface',
     'dpdk_add_bridge_port',
     'dpdk_add_bridge_bond',
+    'dpdk_set_bond_config',
     'apt_install',
     'apt_update',
     'config',
@@ -511,6 +512,21 @@ class TestNeutronOVSUtils(CharmTestCase):
                 call('br-phynet3', 'bond2', ['dpdk2'], ['0000:001c.03'])],
                 any_order=True
             )
+            self.dpdk_set_bond_config.assert_has_calls([
+                call('bond0',
+                     {'mode': 'balance-tcp',
+                      'lacp': 'active',
+                      'lacp-time': 'fast'}),
+                call('bond1',
+                     {'mode': 'balance-tcp',
+                      'lacp': 'active',
+                      'lacp-time': 'fast'}),
+                call('bond2',
+                     {'mode': 'balance-tcp',
+                      'lacp': 'active',
+                      'lacp-time': 'fast'})],
+                any_order=True
+            )
         else:
             self.dpdk_add_bridge_port.assert_has_calls([
                 call('br-phynet1', 'dpdk0', '0000:001c.01'),
@@ -762,3 +778,26 @@ class TestDPDKBridgeBondMap(CharmTestCase):
                     ]
 
         self.assertEqual(ctx.items(), expected)
+
+
+class TestDPDKBondsConfig(CharmTestCase):
+
+    def setUp(self):
+        super(TestDPDKBondsConfig, self).setUp(nutils, TO_PATCH)
+        self.config.side_effect = self.test_config.get
+
+    def test_get_bond_config(self):
+        self.test_config.set('dpdk-bond-config',
+                             ':active-backup bond1:balance-slb:off')
+        bonds_config = nutils.DPDKBondsConfig()
+
+        self.assertEqual(bonds_config.get_bond_config('bond0'),
+                         {'mode': 'active-backup',
+                          'lacp': 'active',
+                          'lacp-time': 'fast'
+                          })
+        self.assertEqual(bonds_config.get_bond_config('bond1'),
+                         {'mode': 'balance-slb',
+                          'lacp': 'off',
+                          'lacp-time': 'fast'
+                          })
