@@ -127,6 +127,14 @@ options:
       Comma-separated list of key=value config flags with the additional dhcp
       options for neutron dnsmasq. Note, this option is only valid when
       enable-local-dhcp-and-metadata option is set to True.
+  instance-mtu:
+    type: int
+    default:
+    description: |
+      Configure DHCP services to provide MTU configuration to instances
+      within the cloud. This is useful in deployments where its not
+      possible to increase MTU on switches and physical servers to
+      accommodate the packet overhead of using GRE tunnels.
   dns-servers:
     type: string
     default:

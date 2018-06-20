@@ -222,6 +222,8 @@ class DHCPAgentContext(OSContextGenerator):
         if neutron_api_settings.get('dns_domain'):
             ctxt['dns_domain'] = neutron_api_settings.get('dns_domain')
 
+        ctxt['instance_mtu'] = config('instance-mtu')
+
         return ctxt
 
 

@@ -294,6 +294,7 @@ class DHCPAgentContextTest(CharmTestCase):
         self.assertEqual(
             context.DHCPAgentContext()(),
             {'dns_domain': 'openstack.example.',
+             'instance_mtu': None,
              'dns_servers': None}
         )
         self.relation_ids.assert_called_with('neutron-plugin')
@@ -325,6 +326,7 @@ class DHCPAgentContextTest(CharmTestCase):
             context.DHCPAgentContext()(),
             {'availability_zone': 'nova',
              'dns_domain': 'openstack.example.',
+             'instance_mtu': None,
              'dns_servers': '8.8.8.8,4.4.4.4'}
         )
         self.relation_ids.assert_called_with('neutron-plugin')
@@ -354,6 +356,7 @@ class DHCPAgentContextTest(CharmTestCase):
         self.assertEqual(
             context.DHCPAgentContext()(),
             {'availability_zone': 'nova',
+             'instance_mtu': None,
              'dns_servers': '8.8.8.8'}
         )
         self.relation_ids.assert_called_with('neutron-plugin')
@@ -390,6 +393,7 @@ class DHCPAgentContextTest(CharmTestCase):
                     'dhcp-match': 'set:ipxe,175',
                     'server': '1.2.3.4',
                 },
+                'instance_mtu': None,
                 'dns_servers': None,
             }
         )
