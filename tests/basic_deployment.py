@@ -268,7 +268,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             conf = "/etc/neutron/plugins/ml2/ml2_conf.ini"
         for value in vpair:
             self.d.configure(service, {charm_key: value})
-            self._wait_and_check()
+            self._wait_and_check(sleep=60)
             ret = u.validate_config_data(unit, conf, section,
                                          {config_file_key: value})
             msg = "Propagation error, expected %s=%s" % (config_file_key,
@@ -365,11 +365,21 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             set_alternate = {'enable-qos': 'True'}
             self.d.configure('neutron-api', set_alternate)
             self._wait_and_check()
+            qos_plugin = 'qos'
+            config = u._get_config(
+                self.neutron_api_sentry, '/etc/neutron/neutron.conf')
+            service_plugins = config.get(
+                'DEFAULT',
+                'service_plugins').split(',')
+            if qos_plugin not in service_plugins:
+                message = "{} not in service_plugins".format(qos_plugin)
+                amulet.raise_status(amulet.FAIL, msg=message)
+
             config = u._get_config(
                 unit,
                 '/etc/neutron/plugins/ml2/openvswitch_agent.ini')
             extensions = config.get('agent', 'extensions').split(',')
-            if 'qos' not in extensions:
+            if qos_plugin not in extensions:
                 message = "qos not in extensions"
                 amulet.raise_status(amulet.FAIL, msg=message)
 
