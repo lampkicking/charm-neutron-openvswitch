@@ -256,7 +256,6 @@ class TestNeutronOVSUtils(CharmTestCase):
         _regconfs = nutils.register_configs()
         confs = ['/etc/neutron/neutron.conf',
                  '/etc/neutron/plugins/ml2/openvswitch_agent.ini',
-                 '/etc/default/openvswitch-switch',
                  '/etc/init/os-charm-phy-nic-mtu.conf']
         self.assertEqual(_regconfs.configs, confs)
 
@@ -331,11 +330,11 @@ class TestNeutronOVSUtils(CharmTestCase):
     def test_resource_map_dhcp(self, _use_dvr, _enable_local_dhcp):
         _enable_local_dhcp.return_value = True
         _use_dvr.return_value = False
-        self.os_release.return_value = 'diablo'
-        self.lsb_release.return_value = {'DISTRIB_CODENAME': 'lucid'}
+        self.os_release.return_value = 'mitaka'
+        self.lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial'}
         _map = nutils.resource_map()
-        svcs = ['neutron-plugin-openvswitch-agent', 'neutron-metadata-agent',
-                'neutron-dhcp-agent']
+        svcs = ['neutron-metadata-agent', 'neutron-dhcp-agent',
+                'neutron-openvswitch-agent']
         confs = [nutils.NEUTRON_CONF, nutils.NEUTRON_METADATA_AGENT_CONF,
                  nutils.NEUTRON_DHCP_AGENT_CONF]
         [self.assertIn(q_conf, _map.keys()) for q_conf in confs]
@@ -367,20 +366,20 @@ class TestNeutronOVSUtils(CharmTestCase):
         _map = nutils.resource_map()
         self.assertFalse(nutils.EXT_PORT_CONF in _map.keys())
 
+    @patch.object(nutils, 'use_dpdk')
     @patch.object(nutils, 'use_dvr')
-    def test_restart_map(self, _use_dvr):
-        _use_dvr.return_value = False
-        self.os_release.return_value = "diablo"
-        self.lsb_release.return_value = {'DISTRIB_CODENAME': 'lucid'}
+    def test_restart_map(self, mock_use_dvr, mock_use_dpdk):
+        mock_use_dvr.return_value = False
+        mock_use_dpdk.return_value = False
+        self.os_release.return_value = "mitaka"
+        self.lsb_release.return_value = {'DISTRIB_CODENAME': 'xenial'}
+        ML2CONF = "/etc/neutron/plugins/ml2/openvswitch_agent.ini"
         _restart_map = nutils.restart_map()
-        ML2CONF = "/etc/neutron/plugins/ml2/ml2_conf.ini"
         expect = OrderedDict([
-            (nutils.NEUTRON_CONF, ['neutron-plugin-openvswitch-agent']),
-            (ML2CONF, ['neutron-plugin-openvswitch-agent']),
-            (nutils.OVS_DEFAULT, ['openvswitch-switch']),
-            (nutils.PHY_NIC_MTU_CONF, ['os-charm-phy-nic-mtu'])
+            (ML2CONF, ['neutron-openvswitch-agent']),
+            (nutils.NEUTRON_CONF, ['neutron-openvswitch-agent']),
         ])
-        self.assertEqual(expect, _restart_map)
+        self.assertEqual(expect, OrderedDict(_restart_map))
         for item in _restart_map:
             self.assertTrue(item in _restart_map)
             self.assertTrue(expect[item] == _restart_map[item])

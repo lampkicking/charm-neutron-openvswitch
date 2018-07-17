@@ -67,8 +67,9 @@ class NeutronOVSHooksTests(CharmTestCase):
         self._call_hook('install')
         self.install_packages.assert_called_with()
 
+    @patch.object(hooks, 'restart_map')
     @patch.object(hooks, 'restart_on_change')
-    def test_migrate_ovs_default_file(self, mock_restart):
+    def test_migrate_ovs_default_file(self, mock_restart, mock_restart_map):
         # Tests that the /etc/default/openvswitch-switch file is/isn't
         # migrated on the upgrade-charm hook and that no restarts are
         # attempted of the openvswitch-switch service.
@@ -82,14 +83,22 @@ class NeutronOVSHooksTests(CharmTestCase):
             with open('unit_tests/%s' % sample, 'r') as f:
                 content = f.read()
 
-            with patch('builtins.open', mock_open(read_data=content),
-                       create=True):
-                self._call_hook('upgrade-charm')
-                if should_migrate:
-                    self.CONFIGS.write.assert_called_with(utils.OVS_DEFAULT)
+            for ovs_default_exists in [False, True]:
+                if ovs_default_exists:
+                    mock_restart_map.return_value = {utils.OVS_DEFAULT: {}}
                 else:
-                    self.CONFIGS.write.assert_not_called()
-                self.assertEqual(0, mock_restart.call_count)
+                    mock_restart_map.return_value = {}
+
+                with patch('builtins.open', mock_open(read_data=content),
+                           create=True):
+                    self.CONFIGS.write.reset_mock()
+                    self._call_hook('upgrade-charm')
+                    if should_migrate and ovs_default_exists:
+                        self.CONFIGS.write.assert_called_with(
+                            utils.OVS_DEFAULT)
+                    else:
+                        self.CONFIGS.write.assert_not_called()
+                    self.assertEqual(0, mock_restart.call_count)
 
     def test_config_changed_dvr(self):
         self._call_hook('config-changed')

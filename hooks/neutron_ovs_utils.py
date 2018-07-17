@@ -309,7 +309,8 @@ def resource_map():
         )
         if not use_dpdk():
             drop_config.append(DPDK_INTERFACES)
-        if ovs_has_late_dpdk_init():
+            drop_config.append(OVS_DEFAULT)
+        elif ovs_has_late_dpdk_init():
             drop_config.append(OVS_DEFAULT)
     else:
         drop_config.extend([OVS_CONF, DPDK_INTERFACES])
