@@ -217,6 +217,11 @@ DATA_BRIDGE = 'br-data'
 def install_packages():
     status_set('maintenance', 'Installing apt packages')
     apt_update()
+    # NOTE(jamespage): install neutron-common package so we always
+    #                  get a clear signal on which OS release is
+    #                  being deployed
+    apt_install(filter_installed_packages(['neutron-common']),
+                fatal=True)
     # NOTE(jamespage): ensure early install of dkms related
     #                  dependencies for kernels which need
     #                  openvswitch via dkms (12.04).
@@ -252,7 +257,8 @@ def determine_packages():
         pkgs.extend(METADATA_PACKAGES)
 
     cmp_release = CompareOpenStackReleases(
-        os_release('neutron-common', base='icehouse'))
+        os_release('neutron-common', base='icehouse',
+                   reset_cache=True))
     if cmp_release >= 'mitaka' and 'neutron-plugin-openvswitch-agent' in pkgs:
         pkgs.remove('neutron-plugin-openvswitch-agent')
         pkgs.append('neutron-openvswitch-agent')
