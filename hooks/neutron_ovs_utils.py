@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
+import json
 import os
 from itertools import chain
+import shutil
 import subprocess
 
 from charmhelpers.contrib.openstack.neutron import neutron_plugin_attribute
@@ -40,7 +43,6 @@ from charmhelpers.contrib.network.ovs import (
     full_restart,
     enable_ipfix,
     disable_ipfix,
-    set_Open_vSwitch_column_value
 )
 from charmhelpers.core.hookenv import (
     config,
@@ -56,6 +58,7 @@ from charmhelpers.contrib.openstack.context import (
     ExternalPortContext,
     DataPortContext,
     WorkerConfigContext,
+    parse_data_port_mappings,
 )
 from charmhelpers.core.host import (
     lsb_release,
@@ -63,6 +66,7 @@ from charmhelpers.core.host import (
     service_restart,
     service_running,
     CompareHostReleases,
+    init_is_systemd,
 )
 
 from charmhelpers.fetch import (
@@ -145,7 +149,7 @@ BASE_RESOURCE_MAP = OrderedDict([
                          ['neutron-plugin', 'neutron-control'])],
     }),
     (DPDK_INTERFACES, {
-        'services': ['dpdk'],
+        'services': ['dpdk', 'openvswitch-switch'],
         'contexts': [neutron_ovs_context.DPDKDeviceContext()],
     }),
     (PHY_NIC_MTU_CONF, {
@@ -384,22 +388,67 @@ OVS_DPDK_BIN = '/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk'
 OVS_DEFAULT_BIN = '/usr/lib/openvswitch-switch/ovs-vswitchd'
 
 
+# TODO(jamespage): rework back to charmhelpers
+def set_Open_vSwitch_column_value(column, value):
+    """
+    Calls ovs-vsctl and sets the 'column=value' in the Open_vSwitch table.
+
+    :param column: colume name to set value for
+    :param value: value to set
+            See http://www.openvswitch.org//ovs-vswitchd.conf.db.5.pdf for
+            details of the relevant values.
+    :type str
+    :returns bool: indicating if a column value was changed
+    :raises CalledProcessException: possibly ovsdb-server is not running
+    """
+    current_value = None
+    try:
+        current_value = json.loads(subprocess.check_output(
+            ['ovs-vsctl', 'get', 'Open_vSwitch', '.', column]
+        ))
+    except subprocess.CalledProcessError:
+        pass
+
+    if current_value != value:
+        log('Setting {}:{} in the Open_vSwitch table'.format(column, value))
+        subprocess.check_call(['ovs-vsctl', 'set', 'Open_vSwitch',
+                               '.', '{}={}'.format(column,
+                                                   value)])
+        return True
+    return False
+
+
 def enable_ovs_dpdk():
     '''Enables the DPDK variant of ovs-vswitchd and restarts it'''
     subprocess.check_call(UPDATE_ALTERNATIVES + [OVS_DPDK_BIN])
+    values_changed = []
     if ovs_has_late_dpdk_init():
-        ctxt = neutron_ovs_context.OVSDPDKDeviceContext()
-        set_Open_vSwitch_column_value(
-            'other_config:dpdk-init=true')
-        set_Open_vSwitch_column_value(
-            'other_config:dpdk-lcore-mask={}'.format(ctxt['cpu_mask']))
-        set_Open_vSwitch_column_value(
-            'other_config:dpdk-socket-mem={}'.format(ctxt['socket_memory']))
-        set_Open_vSwitch_column_value(
-            'other_config:dpdk-extra=--vhost-owner'
-            ' libvirt-qemu:kvm --vhost-perm 0660')
-    if not is_unit_paused_set():
+        dpdk_context = neutron_ovs_context.OVSDPDKDeviceContext()
+        other_config = OrderedDict([
+            ('pmd-cpu-mask', dpdk_context.cpu_mask()),
+            ('dpdk-socket-mem', dpdk_context.socket_memory()),
+            ('dpdk-extra',
+             '--vhost-owner libvirt-qemu:kvm --vhost-perm 0660'),
+            ('dpdk-init', 'true'),
+        ])
+        for column, value in other_config.items():
+            values_changed.append(
+                set_Open_vSwitch_column_value(
+                    'other_config:{}'.format(column),
+                    value
+                )
+            )
+    if ((values_changed and any(values_changed)) and
+            not is_unit_paused_set()):
         service_restart('openvswitch-switch')
+
+
+def install_tmpfilesd():
+    '''Install systemd-tmpfiles configuration for ovs vhost-user sockets'''
+    if init_is_systemd():
+        shutil.copy('files/nova-ovs-vhost-user.conf',
+                    '/etc/tmpfiles.d')
+        subprocess.check_call(['systemd-tmpfiles', '--create'])
 
 
 def configure_ovs():
@@ -414,6 +463,8 @@ def configure_ovs():
         ext_port_ctx = ExternalPortContext()()
     if ext_port_ctx and ext_port_ctx['ext_port']:
         add_bridge_port(EXT_BRIDGE, ext_port_ctx['ext_port'])
+
+    modern_ovs = ovs_has_late_dpdk_init()
 
     bridgemaps = None
     if not use_dpdk():
@@ -434,25 +485,42 @@ def configure_ovs():
         # NOTE: when in dpdk mode, add based on pci bus order
         #       with type 'dpdk'
         bridgemaps = neutron_ovs_context.resolve_dpdk_bridges()
-        bondmaps = neutron_ovs_context.resolve_dpdk_bonds()
         device_index = 0
-        bridge_bond_map = DPDKBridgeBondMap()
         for pci_address, br in bridgemaps.items():
             add_bridge(br, datapath_type)
-            portname = 'dpdk{}'.format(device_index)
-            if pci_address in bondmaps:
-                bond = bondmaps[pci_address]
-                bridge_bond_map.add_port(br, bond, portname, pci_address)
+            if modern_ovs:
+                portname = 'dpdk-{}'.format(
+                    hashlib.sha1(pci_address.encode('UTF-8')).hexdigest()[:7]
+                )
             else:
-                dpdk_add_bridge_port(br, portname,
-                                     pci_address)
+                portname = 'dpdk{}'.format(device_index)
+
+            dpdk_add_bridge_port(br, portname,
+                                 pci_address)
             device_index += 1
 
-        bond_configs = DPDKBondsConfig()
-        for br, bonds in bridge_bond_map.items():
-            for bond, t in bonds.items():
-                dpdk_add_bridge_bond(br, bond, *t)
-                dpdk_set_bond_config(bond, bond_configs.get_bond_config(bond))
+        if modern_ovs:
+            bondmaps = neutron_ovs_context.resolve_dpdk_bonds()
+            bridge_bond_map = DPDKBridgeBondMap()
+            portmap = parse_data_port_mappings(config('data-port'))
+            for pci_address, bond in bondmaps.items():
+                if bond in portmap:
+                    add_bridge(portmap[bond], datapath_type)
+                    portname = 'dpdk-{}'.format(
+                        hashlib.sha1(pci_address.encode('UTF-8'))
+                        .hexdigest()[:7]
+                    )
+                    bridge_bond_map.add_port(portmap[bond], bond,
+                                             portname, pci_address)
+
+            bond_configs = DPDKBondsConfig()
+            for br, bonds in bridge_bond_map.items():
+                for bond, port_map in bonds.items():
+                    dpdk_add_bridge_bond(br, bond, port_map)
+                    dpdk_set_bond_config(
+                        bond,
+                        bond_configs.get_bond_config(bond)
+                    )
 
     target = config('ipfix-target')
     bridges = [INT_BRIDGE, EXT_BRIDGE]
@@ -626,36 +694,34 @@ def dpdk_add_bridge_port(name, port, pci_address=None):
     subprocess.check_call(cmd)
 
 
-def dpdk_add_bridge_bond(bridge_name, bond_name, port_list, pci_address_list):
+def dpdk_add_bridge_bond(bridge_name, bond_name, port_map):
     ''' Add ports to a bond attached to the named openvswitch bridge '''
-    if ovs_has_late_dpdk_init():
-        cmd = ["ovs-vsctl", "--may-exist",
-               "add-bond", bridge_name, bond_name]
-        for port in port_list:
-            cmd.append(port)
-        id = 0
-        for pci_address in pci_address_list:
-            cmd.extend(["--", "set", "Interface", port_list[id],
-                        "type=dpdk",
-                        "options:dpdk-devargs={}".format(pci_address)])
-            id += 1
-    else:
-        raise Exception("Bond's not supported for OVS pre-2.6.0")
+    if not ovs_has_late_dpdk_init():
+        raise Exception("Bonds are not supported for OVS pre-2.6.0")
+
+    cmd = ["ovs-vsctl", "--may-exist",
+           "add-bond", bridge_name, bond_name]
+    for portname in port_map.keys():
+        cmd.append(portname)
+    for portname, pci_address in port_map.items():
+        cmd.extend(["--", "set", "Interface", portname,
+                    "type=dpdk",
+                    "options:dpdk-devargs={}".format(pci_address)])
     subprocess.check_call(cmd)
 
 
 def dpdk_set_bond_config(bond_name, config):
-    if ovs_has_late_dpdk_init():
-        cmd = ["ovs-vsctl",
-               "--", "set", "port", bond_name,
-               "bond_mode={}".format(config['mode']),
-               "--", "set", "port", bond_name,
-               "lacp={}".format(config['lacp']),
-               "--", "set", "port", bond_name,
-               "other_config:lacp-time=={}".format(config['lacp-time']),
-               ]
-    else:
+    if not ovs_has_late_dpdk_init():
         raise Exception("Bonds are not supported for OVS pre-2.6.0")
+
+    cmd = ["ovs-vsctl",
+           "--", "set", "port", bond_name,
+           "bond_mode={}".format(config['mode']),
+           "--", "set", "port", bond_name,
+           "lacp={}".format(config['lacp']),
+           "--", "set", "port", bond_name,
+           "other_config:lacp-time=={}".format(config['lacp-time']),
+           ]
     subprocess.check_call(cmd)
 
 
@@ -749,9 +815,8 @@ class DPDKBridgeBondMap():
         if bridge not in self.map:
             self.map[bridge] = {}
         if bond not in self.map[bridge]:
-            self.map[bridge][bond] = ([], [])
-        self.map[bridge][bond][0].append(portname)
-        self.map[bridge][bond][1].append(pci_address)
+            self.map[bridge][bond] = {}
+        self.map[bridge][bond][portname] = pci_address
 
     def items(self):
         return list(self.map.items())

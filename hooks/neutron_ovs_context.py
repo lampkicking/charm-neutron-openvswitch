@@ -335,7 +335,11 @@ class DPDKDeviceContext(OSContextGenerator):
         driver = config('dpdk-driver')
         if driver is None:
             return {}
-        return {'devices': resolve_dpdk_bridges(),
+        # Resolve PCI devices for both directly used devices (_bridges)
+        # and devices for use in dpdk bonds (_bonds)
+        pci_devices = resolve_dpdk_bridges()
+        pci_devices.update(resolve_dpdk_bonds())
+        return {'devices': pci_devices,
                 'driver': driver}
 
 

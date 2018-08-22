@@ -45,6 +45,7 @@ TO_PATCH = [
     'purge_packages',
     'enable_nova_metadata',
     'enable_local_dhcp',
+    'install_tmpfilesd',
 ]
 NEUTRON_CONF_DIR = "/etc/neutron"
 

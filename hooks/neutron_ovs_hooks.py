@@ -47,6 +47,7 @@ from neutron_ovs_utils import (
     install_packages,
     purge_packages,
     assess_status,
+    install_tmpfilesd,
 )
 
 hooks = Hooks()
@@ -88,6 +89,7 @@ def upgrade_charm():
 @restart_on_change(restart_map())
 def config_changed():
     install_packages()
+    install_tmpfilesd()
 
     configure_ovs()
     CONFIGS.write_all()

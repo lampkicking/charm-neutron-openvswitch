@@ -17,6 +17,7 @@ from test_utils import patch_open
 from mock import patch, Mock
 import neutron_ovs_context as context
 import charmhelpers
+import copy
 
 _LSB_RELEASE_XENIAL = {
     'DISTRIB_CODENAME': 'xenial',
@@ -566,6 +567,7 @@ DPDK_PATCH = [
     'parse_cpu_list',
     'numa_node_cores',
     'resolve_dpdk_bridges',
+    'resolve_dpdk_bonds',
     'glob',
 ]
 
@@ -645,29 +647,34 @@ class TestOVSDPDKDeviceContext(CharmTestCase):
 
 class TestDPDKDeviceContext(CharmTestCase):
 
+    _dpdk_bridges = {
+        '0000:00:1c.0': 'br-data',
+        '0000:00:1d.0': 'br-physnet1',
+    }
+    _dpdk_bonds = {
+        '0000:00:1c.1': 'dpdk-bond0',
+        '0000:00:1d.1': 'dpdk-bond0',
+    }
+
     def setUp(self):
         super(TestDPDKDeviceContext, self).setUp(context,
                                                  TO_PATCH + DPDK_PATCH)
         self.config.side_effect = self.test_config.get
         self.test_context = context.DPDKDeviceContext()
+        self.resolve_dpdk_bridges.return_value = self._dpdk_bridges
+        self.resolve_dpdk_bonds.return_value = self._dpdk_bonds
 
     def test_context(self):
         self.test_config.set('dpdk-driver', 'uio_pci_generic')
-        self.resolve_dpdk_bridges.return_value = [
-            '0000:00:1c.0',
-            '0000:00:1d.0'
-        ]
+        devices = copy.deepcopy(self._dpdk_bridges)
+        devices.update(self._dpdk_bonds)
         self.assertEqual(self.test_context(), {
-            'devices': ['0000:00:1c.0', '0000:00:1d.0'],
+            'devices': devices,
             'driver': 'uio_pci_generic'
         })
         self.config.assert_called_with('dpdk-driver')
 
     def test_context_none_driver(self):
-        self.resolve_dpdk_bridges.return_value = [
-            '0000:00:1c.0',
-            '0000:00:1d.0'
-        ]
         self.assertEqual(self.test_context(), {})
         self.config.assert_called_with('dpdk-driver')
 

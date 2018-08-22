@@ -82,11 +82,27 @@ DPDK requires the use of hugepages, which is not directly configured in the neut
 
 By default, the charm will configure Open vSwitch/DPDK to consume a processor core + 1G of RAM from each NUMA node on the unit being deployed; this can be tuned using the dpdk-socket-memory and dpdk-socket-cores configuration options of the charm.  The userspace kernel driver can be configured using the dpdk-driver option.  See config.yaml for more details.
 
-**NOTE:** Changing dpdk-socket-* configuration options will trigger a restart of Open vSwitch, which currently causes connectivity to running instances to be lost - connectivity can only be restored with a stop/start of each instance.
+**NOTE:** Changing dpdk-socket-\* configuration options will trigger a restart of Open vSwitch, which currently causes connectivity to running instances to be lost - connectivity can only be restored with a stop/start of each instance.
 
 **NOTE:** Enabling DPDK support automatically disables security groups for instances.
 
 [dpdk-nics]: http://dpdk.org/doc/nics
+
+# DPDK bonding
+
+For deployments using Open vSwitch 2.6.0 or later (OpenStack Ocata on Ubuntu 16.04 onwards), its also possible to use native Open vSwitch DPDK bonding to provide increased resilience for DPDK based deployments.
+
+This feature is configured using the `dpdk-bond-mappings` and `dpdk-bond-config` options of this charm, for example:
+
+    neutron-openvswitch:
+        enable-dpdk: True
+        data-port: "br-phynet1:dpdk-bond0"
+        dpdk-bond-mappings: "dpdk-bond0:a8:9d:21:cf:93:fc dpdk-bond0:a8:9d:21:cf:93:fd"
+        dpdk-bond-config: ":balance-slb:off:fast"
+
+In this example, the PCI devices associated with the two MAC addresses provided will be configured as an OVS DPDK bond device named `dpdk-bond0`; this bond device is then used in br-phynet1 to provide resilient connectivity to the underlying network fabric.
+
+The charm will automatically detect which PCI devices are on each unit of the application based on the `dpdk-bond-mappings` configuration provided, supporting use in environments where network device naming may not be consistent across units.
 
 # Port Configuration
 
