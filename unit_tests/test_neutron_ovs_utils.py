@@ -61,6 +61,9 @@ TO_PATCH = [
     'disable_ipfix',
     'ovs_has_late_dpdk_init',
     'parse_data_port_mappings',
+    'user_exists',
+    'group_exists',
+    'init_is_systemd',
 ]
 
 head_pkg = 'linux-headers-3.15.0-5-generic'
@@ -781,6 +784,28 @@ class TestNeutronOVSUtils(CharmTestCase):
         self.mock_sriov_device2.set_sriov_numvfs.assert_not_called()
 
         self.assertTrue(self.remote_restart.called)
+
+    @patch.object(nutils, 'subprocess')
+    @patch.object(nutils, 'shutil')
+    def test_install_tmpfilesd_lxd(self, mock_shutil, mock_subprocess):
+        self.init_is_systemd.return_value = True
+        self.group_exists.return_value = False
+        self.user_exists.return_value = False
+        nutils.install_tmpfilesd()
+        mock_shutil.copy.assert_not_called()
+        mock_subprocess.check_call.assert_not_called()
+
+    @patch.object(nutils, 'subprocess')
+    @patch.object(nutils, 'shutil')
+    def test_install_tmpfilesd_libvirt(self, mock_shutil, mock_subprocess):
+        self.init_is_systemd.return_value = True
+        self.group_exists.return_value = True
+        self.user_exists.return_value = True
+        nutils.install_tmpfilesd()
+        mock_shutil.copy.assert_called_once()
+        mock_subprocess.check_call.assert_called_once_with(
+            ['systemd-tmpfiles', '--create']
+        )
 
 
 class TestDPDKBridgeBondMap(CharmTestCase):

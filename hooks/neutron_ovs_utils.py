@@ -67,6 +67,8 @@ from charmhelpers.core.host import (
     service_running,
     CompareHostReleases,
     init_is_systemd,
+    group_exists,
+    user_exists,
 )
 
 from charmhelpers.fetch import (
@@ -445,7 +447,10 @@ def enable_ovs_dpdk():
 
 def install_tmpfilesd():
     '''Install systemd-tmpfiles configuration for ovs vhost-user sockets'''
-    if init_is_systemd():
+    # NOTE(jamespage): Only do this if libvirt is actually installed
+    if (init_is_systemd() and
+            user_exists('libvirt-qemu') and
+            group_exists('kvm')):
         shutil.copy('files/nova-ovs-vhost-user.conf',
                     '/etc/tmpfiles.d')
         subprocess.check_call(['systemd-tmpfiles', '--create'])
