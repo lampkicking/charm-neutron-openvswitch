@@ -20,6 +20,9 @@ from copy import deepcopy
 
 from charmhelpers.contrib.openstack.utils import (
     pausable_restart_on_change as restart_on_change,
+    series_upgrade_prepare,
+    series_upgrade_complete,
+    is_unit_paused_set,
 )
 
 from charmhelpers.core.hookenv import (
@@ -48,6 +51,8 @@ from neutron_ovs_utils import (
     purge_packages,
     assess_status,
     install_tmpfilesd,
+    pause_unit_helper,
+    resume_unit_helper,
 )
 
 hooks = Hooks()
@@ -88,6 +93,12 @@ def upgrade_charm():
 @hooks.hook('config-changed')
 @restart_on_change(restart_map())
 def config_changed():
+    # if we are paused, delay doing any config changed hooks.
+    # It is forced on the resume.
+    if is_unit_paused_set():
+        log("Unit is pause or upgrading. Skipping config_changed", "WARN")
+        return
+
     install_packages()
     install_tmpfilesd()
 
@@ -154,6 +165,20 @@ def amqp_changed():
 @restart_on_change(restart_map(), stopstart=True)
 def restart_check():
     CONFIGS.write_all()
+
+
+@hooks.hook('pre-series-upgrade')
+def pre_series_upgrade():
+    log("Running prepare series upgrade hook", "INFO")
+    series_upgrade_prepare(
+        pause_unit_helper, CONFIGS)
+
+
+@hooks.hook('post-series-upgrade')
+def post_series_upgrade():
+    log("Running complete series upgrade hook", "INFO")
+    series_upgrade_complete(
+        resume_unit_helper, CONFIGS)
 
 
 def main():
