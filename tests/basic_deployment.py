@@ -364,7 +364,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             set_default = {'enable-qos': 'False'}
             set_alternate = {'enable-qos': 'True'}
             self.d.configure('neutron-api', set_alternate)
-            self._wait_and_check()
+            self._wait_and_check(sleep=60)
             qos_plugin = 'qos'
             config = u._get_config(
                 self.neutron_api_sentry, '/etc/neutron/neutron.conf')

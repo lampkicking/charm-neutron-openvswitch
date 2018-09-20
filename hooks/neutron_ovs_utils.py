@@ -76,6 +76,8 @@ from charmhelpers.fetch import (
     apt_purge,
     apt_update,
     filter_installed_packages,
+    filter_missing_packages,
+    apt_autoremove,
     get_upstream_version
 )
 
@@ -107,6 +109,15 @@ NEUTRON_METADATA_AGENT_CONF = "/etc/neutron/metadata_agent.ini"
 DVR_PACKAGES = ['neutron-l3-agent']
 DHCP_PACKAGES = ['neutron-dhcp-agent']
 METADATA_PACKAGES = ['neutron-metadata-agent']
+
+PY3_PACKAGES = [
+    'python3-neutron',
+]
+
+PURGE_PACKAGES = [
+    'python-neutron',
+]
+
 PHY_NIC_MTU_CONF = '/etc/init/os-charm-phy-nic-mtu.conf'
 TEMPLATES = 'templates/'
 OVS_DEFAULT = '/etc/default/openvswitch-switch'
@@ -221,7 +232,6 @@ DATA_BRIDGE = 'br-data'
 
 
 def install_packages():
-    status_set('maintenance', 'Installing apt packages')
     apt_update()
     # NOTE(jamespage): install neutron-common package so we always
     #                  get a clear signal on which OS release is
@@ -234,21 +244,26 @@ def install_packages():
     dkms_packages = determine_dkms_package()
     if dkms_packages:
         apt_install([headers_package()] + dkms_packages, fatal=True)
-    apt_install(filter_installed_packages(determine_packages()),
-                fatal=True)
+    missing_packages = filter_installed_packages(determine_packages())
+    if missing_packages:
+        status_set('maintenance', 'Installing packages')
+        apt_install(missing_packages,
+                    fatal=True)
     if use_dpdk():
         enable_ovs_dpdk()
 
 
 def purge_packages(pkg_list):
-    status_set('maintenance', 'Purging unused apt packages')
     purge_pkgs = []
     required_packages = determine_packages()
     for pkg in pkg_list:
         if pkg not in required_packages:
             purge_pkgs.append(pkg)
+    purge_pkgs = filter_missing_packages(purge_pkgs)
     if purge_pkgs:
+        status_set('maintenance', 'Purging unused packages')
         apt_purge(purge_pkgs, fatal=True)
+        apt_autoremove(purge=True, fatal=True)
 
 
 def determine_packages():
@@ -278,7 +293,20 @@ def determine_packages():
         else:
             pkgs.append('neutron-plugin-sriov-agent')
 
+    if cmp_release >= 'rocky':
+        pkgs = [p for p in pkgs if not p.startswith('python-')]
+        pkgs.extend(PY3_PACKAGES)
+
     return pkgs
+
+
+def determine_purge_packages():
+    cmp_release = CompareOpenStackReleases(
+        os_release('neutron-common', base='icehouse',
+                   reset_cache=True))
+    if cmp_release >= 'rocky':
+        return PURGE_PACKAGES
+    return []
 
 
 def register_configs(release=None):

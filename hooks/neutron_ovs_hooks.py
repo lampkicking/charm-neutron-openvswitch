@@ -53,6 +53,7 @@ from neutron_ovs_utils import (
     install_tmpfilesd,
     pause_unit_helper,
     resume_unit_helper,
+    determine_purge_packages,
 )
 
 hooks = Hooks()
@@ -101,6 +102,10 @@ def config_changed():
 
     install_packages()
     install_tmpfilesd()
+
+    # NOTE(jamespage): purge any packages as a result of py3 switch
+    #                  at rocky.
+    purge_packages(determine_purge_packages())
 
     configure_ovs()
     CONFIGS.write_all()

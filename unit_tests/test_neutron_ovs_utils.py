@@ -43,6 +43,7 @@ TO_PATCH = [
     'config',
     'os_release',
     'filter_installed_packages',
+    'filter_missing_packages',
     'lsb_release',
     'neutron_plugin_attribute',
     'full_restart',

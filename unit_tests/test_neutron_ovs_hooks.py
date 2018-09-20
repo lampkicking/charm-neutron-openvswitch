@@ -46,6 +46,8 @@ TO_PATCH = [
     'enable_nova_metadata',
     'enable_local_dhcp',
     'install_tmpfilesd',
+    'purge_packages',
+    'determine_purge_packages',
 ]
 NEUTRON_CONF_DIR = "/etc/neutron"
 
@@ -106,6 +108,14 @@ class NeutronOVSHooksTests(CharmTestCase):
         self.install_packages.assert_called_with()
         self.assertTrue(self.CONFIGS.write_all.called)
         self.configure_ovs.assert_called_with()
+
+    def test_config_changed_rocky_upgrade(self):
+        self.determine_purge_packages.return_value = ['python-neutron']
+        self._call_hook('config-changed')
+        self.install_packages.assert_called_with()
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.configure_ovs.assert_called_with()
+        self.purge_packages.assert_called_with(['python-neutron'])
 
     @patch.object(hooks, 'neutron_plugin_joined')
     def test_neutron_plugin_api(self, _plugin_joined):
