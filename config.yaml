@@ -250,7 +250,31 @@ options:
       configured will be used.
   ipfix-target:
     type: string
-    default: 
+    default:
     description: |
       IPFIX target wit the format "IP_Address:Port". This will enable IPFIX
       exporting on all OVS bridges to the target, including br-int and br-ext.
+  security-group-log-output-base:
+    type: string
+    default:
+    description: |
+      This option allows setting a path for Network Security Group logs.
+      A valid file system path must be provided. If this option is not
+      provided Neutron will use syslog as a destination.
+      (Available from Queens)
+  security-group-log-rate-limit:
+    type: int
+    default:
+    description: |
+      Log entries are queued for writing to a log file when a packet rate
+      exceeds the limit set by this option.
+      Possible values: null (no rate limitation), integer values greater than 100.
+      WARNING: Should be NOT LESS than 100, if set
+      (or, if null, logging will log unlimited.)
+  security-group-log-burst-limit:
+    type: int
+    default: 25
+    description: |
+      This option sets the maximum queue size for log entries.
+      Can be used to avoid excessive memory consumption.
+      WARNING: Should be NOT LESS than 25.

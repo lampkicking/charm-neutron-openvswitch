@@ -129,7 +129,10 @@ class OVSPluginContextTest(CharmTestCase):
                   'bridge-mappings': "physnet1:br-data physnet2:br-data",
                   'flat-network-providers': 'physnet3 physnet4',
                   'prevent-arp-spoofing': False,
-                  'enable-dpdk': False}
+                  'enable-dpdk': False,
+                  'security-group-log-output-base': '/var/log/nsg.log',
+                  'security-group-log-rate-limit': None,
+                  'security-group-log-burst-limit': 25}
 
         def mock_config(key=None):
             if key:
@@ -183,6 +186,10 @@ class OVSPluginContextTest(CharmTestCase):
             'bridge_mappings': 'physnet1:br-data,physnet2:br-data',
             'vlan_ranges': 'physnet1:1000:1500,physnet2:2000:2500',
             'prevent_arp_spoofing': False,
+            'enable_nsg_logging': False,
+            'nsg_log_output_base': '/var/log/nsg.log',
+            'nsg_log_rate_limit': None,
+            'nsg_log_burst_limit': 25,
         }
         self.assertEqual(expect, napi_ctxt())
 
@@ -259,6 +266,10 @@ class OVSPluginContextTest(CharmTestCase):
             'bridge_mappings': 'physnet1:br-data',
             'vlan_ranges': 'physnet1:1000:2000',
             'prevent_arp_spoofing': True,
+            'enable_nsg_logging': False,
+            'nsg_log_output_base': None,
+            'nsg_log_rate_limit': None,
+            'nsg_log_burst_limit': 25,
         }
         self.maxDiff = None
         self.assertEqual(expect, napi_ctxt())
@@ -755,24 +766,41 @@ class TestFirewallDriver(CharmTestCase):
         self.config.side_effect = self.test_config.get
 
     def test_get_firewall_driver_xenial_unset(self):
+        ctxt = {'enable_nsg_logging': False}
         self.lsb_release.return_value = _LSB_RELEASE_XENIAL
-        self.assertEqual(context._get_firewall_driver(),
+        self.assertEqual(context._get_firewall_driver(ctxt),
                          context.IPTABLES_HYBRID)
 
     def test_get_firewall_driver_xenial_openvswitch(self):
+        ctxt = {'enable_nsg_logging': False}
         self.test_config.set('firewall-driver', 'openvswitch')
         self.lsb_release.return_value = _LSB_RELEASE_XENIAL
-        self.assertEqual(context._get_firewall_driver(),
+        self.assertEqual(context._get_firewall_driver(ctxt),
                          context.OPENVSWITCH)
 
     def test_get_firewall_driver_xenial_invalid(self):
+        ctxt = {'enable_nsg_logging': False}
         self.test_config.set('firewall-driver', 'foobar')
         self.lsb_release.return_value = _LSB_RELEASE_XENIAL
-        self.assertEqual(context._get_firewall_driver(),
+        self.assertEqual(context._get_firewall_driver(ctxt),
                          context.IPTABLES_HYBRID)
 
     def test_get_firewall_driver_trusty_openvswitch(self):
+        ctxt = {'enable_nsg_logging': False}
         self.test_config.set('firewall-driver', 'openvswitch')
         self.lsb_release.return_value = _LSB_RELEASE_TRUSTY
-        self.assertEqual(context._get_firewall_driver(),
+        self.assertEqual(context._get_firewall_driver(ctxt),
+                         context.IPTABLES_HYBRID)
+
+    def test_get_firewall_driver_nsg_logging(self):
+        ctxt = {'enable_nsg_logging': True}
+        self.lsb_release.return_value = _LSB_RELEASE_XENIAL
+        self.test_config.set('firewall-driver', 'openvswitch')
+        self.assertEqual(context._get_firewall_driver(ctxt),
+                         context.OPENVSWITCH)
+
+    def test_get_firewall_driver_nsg_logging_iptables_hybrid(self):
+        ctxt = {'enable_nsg_logging': True}
+        self.lsb_release.return_value = _LSB_RELEASE_XENIAL
+        self.assertEqual(context._get_firewall_driver(ctxt),
                          context.IPTABLES_HYBRID)

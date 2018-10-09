@@ -51,7 +51,7 @@ OPENVSWITCH = 'openvswitch'
 VALID_FIREWALL_DRIVERS = (IPTABLES_HYBRID, OPENVSWITCH)
 
 
-def _get_firewall_driver():
+def _get_firewall_driver(ovs_ctxt):
     '''
     Determine the firewall driver to use based on configuration,
     OpenStack and Ubuntu releases.
@@ -62,6 +62,12 @@ def _get_firewall_driver():
     release = lsb_release()['DISTRIB_CODENAME']
     if driver not in VALID_FIREWALL_DRIVERS:
         return IPTABLES_HYBRID
+
+    if driver == IPTABLES_HYBRID and ovs_ctxt['enable_nsg_logging']:
+        msg = "NSG logging can not be enabled - need to set " \
+              "firewall driver to 'openvswitch' explicitly"
+        log(msg, "WARN")
+
     if (driver == OPENVSWITCH and
             CompareHostReleases(release) < 'xenial'):
         # NOTE(jamespage): Switch back to iptables_hybrid for
@@ -69,7 +75,35 @@ def _get_firewall_driver():
         #                  to requirements for Linux >= 4.4 and
         #                  Open vSwitch >= 2.5
         return IPTABLES_HYBRID
+
     return driver
+
+
+def get_nsg_log_path(desired_nsg_log_path):
+    if not desired_nsg_log_path:
+        # None means "we need to use syslog" - no need
+        # to check anything on filesystem
+        return None
+
+    dst_dir, _ = os.path.split(desired_nsg_log_path)
+    path_exists = os.path.exists(dst_dir)
+    if not path_exists:
+        log(
+            "Desired NSG log directory {} not exists! "
+            "falling back to syslog".format(dst_dir),
+            "WARN"
+        )
+        return None
+
+    if path_exists and os.path.isdir(desired_nsg_log_path):
+        log(
+            "Desired NSG log path {} should be file, not directory! "
+            "falling back to syslog".format(desired_nsg_log_path),
+            "WARN"
+        )
+        return None
+
+    return desired_nsg_log_path
 
 
 class OVSPluginContext(context.NeutronContext):
@@ -132,7 +166,6 @@ class OVSPluginContext(context.NeutronContext):
         ovs_ctxt['use_syslog'] = conf['use-syslog']
         ovs_ctxt['verbose'] = conf['verbose']
         ovs_ctxt['debug'] = conf['debug']
-
         cmp_release = CompareOpenStackReleases(
             os_release('neutron-common', base='icehouse'))
         if conf['prevent-arp-spoofing'] and cmp_release >= 'ocata':
@@ -182,7 +215,21 @@ class OVSPluginContext(context.NeutronContext):
         if vlan_ranges:
             ovs_ctxt['vlan_ranges'] = ','.join(vlan_ranges.split())
 
-        ovs_ctxt['firewall_driver'] = _get_firewall_driver()
+        ovs_ctxt['enable_nsg_logging'] = \
+            neutron_api_settings['enable_nsg_logging']
+
+        ovs_ctxt['nsg_log_output_base'] = get_nsg_log_path(
+            config('security-group-log-output-base')
+        )
+        ovs_ctxt['nsg_log_rate_limit'] = \
+            config('security-group-log-rate-limit')
+        ovs_ctxt['nsg_log_burst_limit'] = \
+            config('security-group-log-burst-limit')
+
+        ovs_ctxt['firewall_driver'] = _get_firewall_driver(ovs_ctxt)
+
+        if ovs_ctxt['firewall_driver'] != OPENVSWITCH:
+            ovs_ctxt['enable_nsg_logging'] = False
 
         return ovs_ctxt
 

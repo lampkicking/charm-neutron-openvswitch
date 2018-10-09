@@ -67,6 +67,7 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         this_service = {'name': 'neutron-openvswitch'}
         other_services = [
             {'name': 'nova-compute'},
+            {'name': 'nova-cloud-controller'},
             {'name': 'rabbitmq-server'},
             {'name': 'keystone'},
             {'name': 'glance'},
@@ -94,6 +95,13 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             'glance:shared-db': 'percona-cluster:shared-db',
             'glance:amqp': 'rabbitmq-server:amqp',
             'keystone:shared-db': 'percona-cluster:shared-db',
+            'nova-cloud-controller:shared-db': 'percona-cluster:shared-db',
+            'nova-cloud-controller:amqp': 'rabbitmq-server:amqp',
+            'nova-cloud-controller:identity-service': 'keystone:'
+                                                      'identity-service',
+            'nova-cloud-controller:cloud-compute': 'nova-compute:'
+                                                   'cloud-compute',
+            'nova-cloud-controller:image-service': 'glance:image-service',
         }
         super(NeutronOVSBasicDeployment, self)._add_relations(relations)
 
@@ -109,9 +117,11 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
             'root-password': 'ChangeMe123',
             'sst-password': 'ChangeMe123',
         }
+        nova_cc_config = {'network-manager': 'Neutron'}
         configs = {
             'neutron-openvswitch': neutron_ovs_config,
             'percona-cluster': pxc_config,
+            'nova-cloud-controller': nova_cc_config,
         }
         super(NeutronOVSBasicDeployment, self)._configure_services(configs)
 
