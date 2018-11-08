@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import sys
+import uuid
 
 from copy import deepcopy
 
@@ -105,7 +106,11 @@ def config_changed():
 
     # NOTE(jamespage): purge any packages as a result of py3 switch
     #                  at rocky.
-    purge_packages(determine_purge_packages())
+    packages_to_purge = determine_purge_packages()
+    request_nova_compute_restart = False
+    if packages_to_purge:
+        purge_packages(packages_to_purge)
+        request_nova_compute_restart = True
 
     configure_ovs()
     CONFIGS.write_all()
@@ -113,7 +118,9 @@ def config_changed():
     # to allow us to enable boot time execution of init script
     configure_sriov()
     for rid in relation_ids('neutron-plugin'):
-        neutron_plugin_joined(relation_id=rid)
+        neutron_plugin_joined(
+            relation_id=rid,
+            request_restart=request_nova_compute_restart)
 
 
 @hooks.hook('neutron-plugin-api-relation-changed')
@@ -131,7 +138,7 @@ def neutron_plugin_api_changed():
 
 
 @hooks.hook('neutron-plugin-relation-joined')
-def neutron_plugin_joined(relation_id=None):
+def neutron_plugin_joined(relation_id=None, request_restart=False):
     if enable_local_dhcp():
         install_packages()
     else:
@@ -146,6 +153,8 @@ def neutron_plugin_joined(relation_id=None):
     rel_data = {
         'metadata-shared-secret': secret,
     }
+    if request_restart:
+        rel_data['restart-nonce'] = str(uuid.uuid4())
     relation_set(relation_id=relation_id, **rel_data)
 
 

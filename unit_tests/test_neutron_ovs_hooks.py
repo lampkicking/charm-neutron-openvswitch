@@ -109,13 +109,18 @@ class NeutronOVSHooksTests(CharmTestCase):
         self.assertTrue(self.CONFIGS.write_all.called)
         self.configure_ovs.assert_called_with()
 
-    def test_config_changed_rocky_upgrade(self):
+    @patch.object(hooks, 'neutron_plugin_joined')
+    def test_config_changed_rocky_upgrade(self, _plugin_joined):
         self.determine_purge_packages.return_value = ['python-neutron']
+        self.relation_ids.return_value = ['neutron-plugin:42']
         self._call_hook('config-changed')
         self.install_packages.assert_called_with()
         self.assertTrue(self.CONFIGS.write_all.called)
         self.configure_ovs.assert_called_with()
         self.purge_packages.assert_called_with(['python-neutron'])
+        _plugin_joined.assert_called_with(
+            relation_id='neutron-plugin:42',
+            request_restart=True)
 
     @patch.object(hooks, 'neutron_plugin_joined')
     def test_neutron_plugin_api(self, _plugin_joined):
