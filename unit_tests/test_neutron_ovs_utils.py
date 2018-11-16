@@ -188,6 +188,40 @@ class TestNeutronOVSUtils(CharmTestCase):
     @patch.object(nutils, 'use_dvr')
     @patch.object(charmhelpers.contrib.openstack.neutron, 'os_release')
     @patch.object(charmhelpers.contrib.openstack.neutron, 'headers_package')
+    def test_determine_packages_dvr(self, _head_pkgs, _os_rel, _use_dvr):
+        _use_dvr.return_value = True
+        _os_rel.return_value = 'icehouse'
+        self.os_release.return_value = 'icehouse'
+        _head_pkgs.return_value = head_pkg
+        pkg_list = nutils.determine_packages()
+        expect = [
+            head_pkg,
+            'neutron-plugin-openvswitch-agent',
+            'neutron-l3-agent',
+        ]
+        self.assertEqual(pkg_list, expect)
+
+    @patch.object(nutils, 'use_dvr')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'os_release')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'headers_package')
+    def test_determine_packages_dvr_rocky(self, _head_pkgs, _os_rel, _use_dvr):
+        _use_dvr.return_value = True
+        _os_rel.return_value = 'rocky'
+        self.os_release.return_value = 'rocky'
+        _head_pkgs.return_value = head_pkg
+        pkg_list = nutils.determine_packages()
+        expect = [
+            head_pkg,
+            'neutron-l3-agent',
+            'neutron-openvswitch-agent',
+            'python3-neutron',
+            'python3-neutron-fwaas',
+        ]
+        self.assertEqual(pkg_list, expect)
+
+    @patch.object(nutils, 'use_dvr')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'os_release')
+    @patch.object(charmhelpers.contrib.openstack.neutron, 'headers_package')
     def test_determine_pkgs_sriov(self, _head_pkgs, _os_rel,
                                   _use_dvr):
         self.test_config.set('enable-local-dhcp-and-metadata', False)

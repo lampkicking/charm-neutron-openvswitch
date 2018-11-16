@@ -116,6 +116,7 @@ PY3_PACKAGES = [
 
 PURGE_PACKAGES = [
     'python-neutron',
+    'python-neutron-fwaas',
 ]
 
 PHY_NIC_MTU_CONF = '/etc/init/os-charm-phy-nic-mtu.conf'
@@ -268,11 +269,13 @@ def purge_packages(pkg_list):
 
 def determine_packages():
     pkgs = []
+    py3_pkgs = []
     plugin_pkgs = neutron_plugin_attribute('ovs', 'packages', 'neutron')
     for plugin_pkg in plugin_pkgs:
         pkgs.extend(plugin_pkg)
     if use_dvr():
         pkgs.extend(DVR_PACKAGES)
+        py3_pkgs.append('python3-neutron-fwaas')
     if enable_local_dhcp():
         pkgs.extend(DHCP_PACKAGES)
         pkgs.extend(METADATA_PACKAGES)
@@ -296,6 +299,7 @@ def determine_packages():
     if cmp_release >= 'rocky':
         pkgs = [p for p in pkgs if not p.startswith('python-')]
         pkgs.extend(PY3_PACKAGES)
+        pkgs.extend(py3_pkgs)
 
     return pkgs
 
