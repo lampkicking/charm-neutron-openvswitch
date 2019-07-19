@@ -277,4 +277,40 @@ options:
     description: |
       This option sets the maximum queue size for log entries.
       Can be used to avoid excessive memory consumption.
+<<<<<<< HEAD
       WARNING: Should be NOT LESS than 25.
+=======
+      WARNING: Should be NOT LESS than 25.
+  use-dvr-snat:
+    type: boolean
+    default: False
+    description: |
+      This option controls a mode of the l3 agent when DVR is used. There are
+      2 modes 'dvr' (default) and dvr_snat (gateway mode). Neutron server
+      (deployed by neutron-api charm) will schedule a network:router_centralized_snat port
+      and a (centralized) snat namespace to dvr_snat mode agents only. If this option
+      is enabled, all neutron-openvswitch nodes become candidates for being centralized
+      snat nodes. If l3ha is enabled on neutron-api, relevant packages are also installed
+      on every unit making them capable of hosting parts of an L3HA router. The min and max
+      numbers of L3 agents per router need to be taken into account in this case
+      (see max_l3_agents_per_router and min_l3_agents_per_router Neutron options).
+      Practically, this option can be used to allow DVR routers (L3HA or not) to
+      be scheduled without a requirement for a dedicated network node to host
+      centralized SNAT. This is especially important if only floating IPs are
+      used in the network design and SNAT traffic is minimal or non-existent.
+  sysctl:
+    type: string
+    default: |
+      { net.ipv4.neigh.default.gc_thresh1 : 128,
+        net.ipv4.neigh.default.gc_thresh2 : 28672,
+        net.ipv4.neigh.default.gc_thresh3 : 32768,
+        net.ipv6.neigh.default.gc_thresh1 : 128,
+        net.ipv6.neigh.default.gc_thresh2 : 28672,
+        net.ipv6.neigh.default.gc_thresh3 : 32768,
+        net.nf_conntrack_max : 1000000,
+        net.netfilter.nf_conntrack_buckets : 204800,
+        net.netfilter.nf_conntrack_max : 1000000 }
+    description: |
+      YAML-formatted associative array of sysctl key/value pairs to be set
+      persistently e.g. '{ kernel.pid_max : 4194303 }'.
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df

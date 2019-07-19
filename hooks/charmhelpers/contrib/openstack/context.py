@@ -29,6 +29,7 @@ from charmhelpers.fetch import (
     filter_installed_packages,
 )
 from charmhelpers.core.hookenv import (
+    NoNetworkBinding,
     config,
     is_relation_made,
     local_unit,
@@ -97,8 +98,13 @@ from charmhelpers.contrib.network.ip import (
 )
 from charmhelpers.contrib.openstack.utils import (
     config_flags_parser,
+<<<<<<< HEAD
     enable_memcache,
     snap_install_requested,
+=======
+    get_os_codename_install_source,
+    enable_memcache,
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
     CompareOpenStackReleases,
     os_release,
 )
@@ -241,6 +247,11 @@ class SharedDBContext(OSContextGenerator):
         else:
             rids = relation_ids(self.interfaces[0])
 
+<<<<<<< HEAD
+=======
+        rel = (get_os_codename_install_source(config('openstack-origin')) or
+               'icehouse')
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
         for rid in rids:
             self.related = True
             for unit in related_units(rid):
@@ -252,13 +263,10 @@ class SharedDBContext(OSContextGenerator):
                     'database': self.database,
                     'database_user': self.user,
                     'database_password': rdata.get(password_setting),
-                    'database_type': 'mysql'
+                    'database_type': 'mysql+pymysql'
                 }
-                # Note(coreycb): We can drop mysql+pymysql if we want when the
-                # following review lands, though it seems mysql+pymysql would
-                # be preferred. https://review.openstack.org/#/c/462190/
-                if snap_install_requested():
-                    ctxt['database_type'] = 'mysql+pymysql'
+                if CompareOpenStackReleases(rel) < 'stein':
+                    ctxt['database_type'] = 'mysql'
                 if self.context_complete(ctxt):
                     db_ssl(rdata, ctxt, self.ssl_dir)
                     return ctxt
@@ -792,6 +800,7 @@ class ApacheSSLContext(OSContextGenerator):
     # and service namespace accordingly.
     external_ports = []
     service_namespace = None
+    user = group = 'root'
 
     def enable_modules(self):
         cmd = ['a2enmod', 'ssl', 'proxy', 'proxy_http', 'headers']
@@ -810,9 +819,17 @@ class ApacheSSLContext(OSContextGenerator):
                 key_filename = 'key'
 
             write_file(path=os.path.join(ssl_dir, cert_filename),
+<<<<<<< HEAD
                        content=b64decode(cert), perms=0o640)
             write_file(path=os.path.join(ssl_dir, key_filename),
                        content=b64decode(key), perms=0o640)
+=======
+                       content=b64decode(cert), owner=self.user,
+                       group=self.group, perms=0o640)
+            write_file(path=os.path.join(ssl_dir, key_filename),
+                       content=b64decode(key), owner=self.user,
+                       group=self.group, perms=0o640)
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 
     def configure_ca(self):
         ca_cert = get_ca_cert()
@@ -869,7 +886,7 @@ class ApacheSSLContext(OSContextGenerator):
                     addr = network_get_primary_address(
                         ADDRESS_MAP[net_type]['binding']
                     )
-                except NotImplementedError:
+                except (NotImplementedError, NoNetworkBinding):
                     addr = fallback
 
             endpoint = resolve_address(net_type)
@@ -1207,7 +1224,7 @@ class SubordinateConfigContext(OSContextGenerator):
 
     The subordinate interface allows subordinates to export their
     configuration requirements to the principle for multiple config
-    files and multiple serivces.  Ie, a subordinate that has interfaces
+    files and multiple services.  Ie, a subordinate that has interfaces
     to both glance and nova may export to following yaml blob as json::
 
         glance:
@@ -1428,11 +1445,11 @@ class ZeroMQContext(OSContextGenerator):
         ctxt = {}
         if is_relation_made('zeromq-configuration', 'host'):
             for rid in relation_ids('zeromq-configuration'):
-                    for unit in related_units(rid):
-                        ctxt['zmq_nonce'] = relation_get('nonce', unit, rid)
-                        ctxt['zmq_host'] = relation_get('host', unit, rid)
-                        ctxt['zmq_redis_address'] = relation_get(
-                            'zmq_redis_address', unit, rid)
+                for unit in related_units(rid):
+                    ctxt['zmq_nonce'] = relation_get('nonce', unit, rid)
+                    ctxt['zmq_host'] = relation_get('host', unit, rid)
+                    ctxt['zmq_redis_address'] = relation_get(
+                        'zmq_redis_address', unit, rid)
 
         return ctxt
 
@@ -1932,3 +1949,33 @@ class VersionsContext(OSContextGenerator):
         return {
             'openstack_release': ostack,
             'operating_system_release': osystem}
+<<<<<<< HEAD
+=======
+
+
+class LogrotateContext(OSContextGenerator):
+    """Common context generator for logrotate."""
+
+    def __init__(self, location, interval, count):
+        """
+        :param location: Absolute path for the logrotate config file
+        :type location: str
+        :param interval: The interval for the rotations. Valid values are
+                         'daily', 'weekly', 'monthly', 'yearly'
+        :type interval: str
+        :param count: The logrotate count option configures the 'count' times
+                      the log files are being rotated before being
+        :type count: int
+        """
+        self.location = location
+        self.interval = interval
+        self.count = 'rotate {}'.format(count)
+
+    def __call__(self):
+        ctxt = {
+            'logrotate_logs_location': self.location,
+            'logrotate_interval': self.interval,
+            'logrotate_count': self.count,
+        }
+        return ctxt
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df

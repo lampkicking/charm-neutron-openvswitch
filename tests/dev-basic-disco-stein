@@ -14,10 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Amulet tests on a basic neutron-openvswitch deployment on trusty-icehouse."""
+<<<<<<< HEAD:tests/dev-basic-cosmic-rocky
+"""Amulet tests on a basic neutron-openvswitch deployment on cosmic-rocky."""
+=======
+"""Amulet tests on a basic neutron-openvswitch deployment on disco-stein."""
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df:tests/dev-basic-disco-stein
 
 from basic_deployment import NeutronOVSBasicDeployment
 
 if __name__ == '__main__':
-    deployment = NeutronOVSBasicDeployment(series='trusty')
+<<<<<<< HEAD:tests/dev-basic-cosmic-rocky
+    deployment = NeutronOVSBasicDeployment(series='cosmic')
+=======
+    deployment = NeutronOVSBasicDeployment(series='disco')
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df:tests/dev-basic-disco-stein
     deployment.run_tests()

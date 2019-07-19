@@ -108,7 +108,15 @@ EXT_PORT_CONF = '/etc/init/ext-port.conf'
 NEUTRON_METADATA_AGENT_CONF = "/etc/neutron/metadata_agent.ini"
 DVR_PACKAGES = ['neutron-l3-agent']
 DHCP_PACKAGES = ['neutron-dhcp-agent']
+<<<<<<< HEAD
 METADATA_PACKAGES = ['neutron-metadata-agent']
+=======
+# haproxy is required for isolated provider networks
+# ns-metadata-proxy LP#1831935
+METADATA_PACKAGES = ['neutron-metadata-agent', 'haproxy']
+# conntrack is a dependency of neutron-l3-agent and hence is not added
+L3HA_PACKAGES = ['keepalived']
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 
 PY3_PACKAGES = [
     'python3-neutron',
@@ -254,6 +262,11 @@ def install_packages():
         enable_ovs_dpdk()
 
 
+def install_l3ha_packages():
+    apt_update()
+    apt_install(L3HA_PACKAGES, fatal=True)
+
+
 def purge_packages(pkg_list):
     purge_pkgs = []
     required_packages = determine_packages()
@@ -276,6 +289,14 @@ def determine_packages():
     if use_dvr():
         pkgs.extend(DVR_PACKAGES)
         py3_pkgs.append('python3-neutron-fwaas')
+<<<<<<< HEAD
+=======
+        _os_release = os_release('neutron-common', base='icehouse')
+        # per 17.08 release notes L3HA + DVR is a Newton+ feature
+        if (use_l3ha() and
+           CompareOpenStackReleases(_os_release) >= 'newton'):
+            pkgs.extend(L3HA_PACKAGES)
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
     if enable_local_dhcp():
         pkgs.extend(DHCP_PACKAGES)
         pkgs.extend(METADATA_PACKAGES)
@@ -459,12 +480,29 @@ def enable_ovs_dpdk():
     if ovs_has_late_dpdk_init():
         dpdk_context = neutron_ovs_context.OVSDPDKDeviceContext()
         other_config = OrderedDict([
+<<<<<<< HEAD
             ('pmd-cpu-mask', dpdk_context.cpu_mask()),
             ('dpdk-socket-mem', dpdk_context.socket_memory()),
             ('dpdk-extra',
              '--vhost-owner libvirt-qemu:kvm --vhost-perm 0660'),
             ('dpdk-init', 'true'),
         ])
+=======
+            ('dpdk-lcore-mask', dpdk_context.cpu_mask()),
+            ('dpdk-socket-mem', dpdk_context.socket_memory()),
+            ('dpdk-init', 'true'),
+        ])
+        if not ovs_vhostuser_client():
+            other_config['dpdk-extra'] = (
+                '--vhost-owner libvirt-qemu:kvm --vhost-perm 0660 ' +
+                dpdk_context.pci_whitelist()
+            )
+        else:
+            other_config['dpdk-extra'] = (
+                dpdk_context.pci_whitelist()
+            )
+        other_config['dpdk-init'] = 'true'
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
         for column, value in other_config.items():
             values_changed.append(
                 set_Open_vSwitch_column_value(
@@ -598,78 +636,68 @@ def configure_sriov():
     os.chmod(NEUTRON_SRIOV_INIT_SCRIPT, 0o755)
     service('enable', 'neutron-openvswitch-networking-sriov')
 
-    if charm_config.changed('sriov-numvfs'):
-        devices = PCINetDevices()
-        sriov_numvfs = charm_config.get('sriov-numvfs')
+    devices = PCINetDevices()
+    sriov_numvfs = charm_config.get('sriov-numvfs')
 
-        # automatic configuration of all SR-IOV devices
-        if sriov_numvfs == 'auto':
-            log('Configuring SR-IOV device VF functions in auto mode')
+    # automatic configuration of all SR-IOV devices
+    if sriov_numvfs == 'auto':
+        log('Configuring SR-IOV device VF functions in auto mode')
+        for device in devices.pci_devices:
+            if device and device.sriov:
+                log("Configuring SR-IOV device"
+                    " {} with {} VF's".format(device.interface_name,
+                                              device.sriov_totalvfs))
+                device.set_sriov_numvfs(device.sriov_totalvfs)
+    else:
+        # Single int blanket configuration
+        try:
+            log('Configuring SR-IOV device VF functions'
+                ' with blanket setting')
             for device in devices.pci_devices:
                 if device and device.sriov:
-                    log("Configuring SR-IOV device"
-                        " {} with {} VF's".format(device.interface_name,
-                                                  device.sriov_totalvfs))
-                    # NOTE(fnordahl): run-time change of numvfs is disallowed
-                    # without resetting to 0 first.
-                    device.set_sriov_numvfs(0)
-                    device.set_sriov_numvfs(device.sriov_totalvfs)
-        else:
-            # Single int blanket configuration
-            try:
-                log('Configuring SR-IOV device VF functions'
-                    ' with blanket setting')
-                for device in devices.pci_devices:
-                    if device and device.sriov:
-                        numvfs = min(int(sriov_numvfs), device.sriov_totalvfs)
-                        if int(sriov_numvfs) > device.sriov_totalvfs:
-                            log('Requested value for sriov-numvfs ({}) too '
-                                'high for interface {}. Falling back to '
-                                'interface totalvfs '
-                                'value: {}'.format(sriov_numvfs,
-                                                   device.interface_name,
-                                                   device.sriov_totalvfs))
-                        log("Configuring SR-IOV device {} with {} "
-                            "VFs".format(device.interface_name, numvfs))
-                        # NOTE(fnordahl): run-time change of numvfs is
-                        # disallowed without resetting to 0 first.
-                        device.set_sriov_numvfs(0)
-                        device.set_sriov_numvfs(numvfs)
-            except ValueError:
-                # <device>:<numvfs>[ <device>:numvfs] configuration
-                sriov_numvfs = sriov_numvfs.split()
-                for device_config in sriov_numvfs:
-                    log('Configuring SR-IOV device VF functions per interface')
-                    interface_name, numvfs = device_config.split(':')
-                    device = devices.get_device_from_interface_name(
-                        interface_name)
-                    if device and device.sriov:
-                        if int(numvfs) > device.sriov_totalvfs:
-                            log('Requested value for sriov-numfs ({}) too '
-                                'high for interface {}. Falling back to '
-                                'interface totalvfs '
-                                'value: {}'.format(numvfs,
-                                                   device.interface_name,
-                                                   device.sriov_totalvfs))
-                            numvfs = device.sriov_totalvfs
-                        log("Configuring SR-IOV device {} with {} "
-                            "VF's".format(device.interface_name, numvfs))
-                        # NOTE(fnordahl): run-time change of numvfs is
-                        # disallowed without resetting to 0 first.
-                        device.set_sriov_numvfs(0)
-                        device.set_sriov_numvfs(int(numvfs))
+                    numvfs = min(int(sriov_numvfs), device.sriov_totalvfs)
+                    if int(sriov_numvfs) > device.sriov_totalvfs:
+                        log('Requested value for sriov-numvfs ({}) too '
+                            'high for interface {}. Falling back to '
+                            'interface totalvfs '
+                            'value: {}'.format(sriov_numvfs,
+                                               device.interface_name,
+                                               device.sriov_totalvfs))
+                    log("Configuring SR-IOV device {} with {} "
+                        "VFs".format(device.interface_name, numvfs))
+                    device.set_sriov_numvfs(numvfs)
+        except ValueError:
+            # <device>:<numvfs>[ <device>:numvfs] configuration
+            sriov_numvfs = sriov_numvfs.split()
+            for device_config in sriov_numvfs:
+                log('Configuring SR-IOV device VF functions per interface')
+                interface_name, numvfs = device_config.split(':')
+                device = devices.get_device_from_interface_name(
+                    interface_name)
+                if device and device.sriov:
+                    if int(numvfs) > device.sriov_totalvfs:
+                        log('Requested value for sriov-numfs ({}) too '
+                            'high for interface {}. Falling back to '
+                            'interface totalvfs '
+                            'value: {}'.format(numvfs,
+                                               device.interface_name,
+                                               device.sriov_totalvfs))
+                        numvfs = device.sriov_totalvfs
+                    log("Configuring SR-IOV device {} with {} "
+                        "VF's".format(device.interface_name, numvfs))
+                    device.set_sriov_numvfs(int(numvfs))
 
-        # Trigger remote restart in parent application
-        remote_restart('neutron-plugin', 'nova-compute')
+    # Trigger remote restart in parent application
+    remote_restart('neutron-plugin', 'nova-compute')
 
-        # Restart of SRIOV agent is required after changes to system runtime
-        # VF configuration
-        cmp_release = CompareOpenStackReleases(
-            os_release('neutron-common', base='icehouse'))
-        if cmp_release >= 'mitaka':
-            service_restart('neutron-sriov-agent')
-        else:
-            service_restart('neutron-plugin-sriov-agent')
+    # Restart of SRIOV agent is required after changes to system runtime
+    # VF configuration
+    cmp_release = CompareOpenStackReleases(
+        os_release('neutron-common', base='icehouse'))
+    if cmp_release >= 'mitaka':
+        service_restart('neutron-sriov-agent')
+    else:
+        service_restart('neutron-plugin-sriov-agent')
 
 
 def get_shared_secret():
@@ -679,7 +707,11 @@ def get_shared_secret():
 
 
 def use_dvr():
-    return context.NeutronAPIContext()()['enable_dvr']
+    return context.NeutronAPIContext()().get('enable_dvr', False)
+
+
+def use_l3ha():
+    return context.NeutronAPIContext()().get('enable_l3ha', False)
 
 
 def determine_datapath_type():
@@ -707,6 +739,20 @@ def ovs_has_late_dpdk_init():
     return apt_pkg.version_compare(ovs_version, '2.6.0') >= 0
 
 
+<<<<<<< HEAD
+=======
+def ovs_vhostuser_client():
+    '''
+    Determine whether OVS will act as a client on the vhostuser socket
+
+    @returns boolean indicating whether OVS will act as a client
+    '''
+    import apt_pkg
+    ovs_version = get_upstream_version("openvswitch-switch")
+    return apt_pkg.version_compare(ovs_version, '2.9.0') >= 0
+
+
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 def enable_sriov():
     '''Determine whether SR-IOV is enabled and supported'''
     cmp_release = CompareOpenStackReleases(
