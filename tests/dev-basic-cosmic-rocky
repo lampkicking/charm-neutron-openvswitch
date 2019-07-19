@@ -14,10 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
+<<<<<<< HEAD:tests/dev-basic-cosmic-rocky
 """Amulet tests on a basic neutron-openvswitch deployment on cosmic-rocky."""
+=======
+"""Amulet tests on a basic neutron-openvswitch deployment on disco-stein."""
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df:tests/dev-basic-disco-stein
+=======
+"""Amulet tests on a basic neutron-openvswitch deployment on cosmic-rocky."""
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 
 from basic_deployment import NeutronOVSBasicDeployment
 
 if __name__ == '__main__':
+<<<<<<< HEAD
+<<<<<<< HEAD:tests/dev-basic-cosmic-rocky
     deployment = NeutronOVSBasicDeployment(series='cosmic')
+=======
+    deployment = NeutronOVSBasicDeployment(series='disco')
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df:tests/dev-basic-disco-stein
+=======
+    deployment = NeutronOVSBasicDeployment(series='cosmic')
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
     deployment.run_tests()

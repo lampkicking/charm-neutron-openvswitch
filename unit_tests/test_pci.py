@@ -21,7 +21,7 @@ from test_pci_helper import (
     mocked_islink,
     mocked_realpath,
 )
-from mock import patch, MagicMock
+from mock import patch, MagicMock, call
 import pci
 
 TO_PATCH = [
@@ -177,6 +177,56 @@ class PCINetDeviceTest(CharmTestCase):
     def test_get_sysnet_interface(self, _update):
         self.assertEqual(
             pci.get_sysnet_interface('/sys/class/net/eth3'), 'eth3')
+
+    @patch('pci.get_sysnet_interfaces_and_macs')
+    def test__set_sriov_numvfs(self, mock_sysnet_ints):
+        mock_sysnet_ints.side_effect = [{
+            'interface': 'eth2',
+            'mac_address': 'a8:9d:21:cf:93:fc',
+            'pci_address': '0000:10:00.0',
+            'state': 'up',
+            'sriov': True,
+            'sriov_totalvfs': 7,
+            'sriov_numvfs': 0
+        }], [{
+            'interface': 'eth2',
+            'mac_address': 'a8:9d:21:cf:93:fc',
+            'pci_address': '0000:10:00.0',
+            'state': 'up',
+            'sriov': True,
+            'sriov_totalvfs': 7,
+            'sriov_numvfs': 4
+        }]
+        dev = pci.PCINetDevice('0000:10:00.0')
+        self.assertEqual('eth2', dev.interface_name)
+        self.assertTrue(dev.sriov)
+        self.assertEqual(7, dev.sriov_totalvfs)
+        self.assertEqual(0, dev.sriov_numvfs)
+
+        with patch_open() as (mock_open, mock_file):
+            dev._set_sriov_numvfs(4)
+            mock_open.assert_called_with(
+                '/sys/class/net/eth2/device/sriov_numvfs', 'w')
+            mock_file.write.assert_called_with("4")
+            self.assertTrue(dev.sriov)
+            self.assertEqual(7, dev.sriov_totalvfs)
+            self.assertEqual(4, dev.sriov_numvfs)
+
+    @patch('pci.PCINetDevice._set_sriov_numvfs')
+    def test_set_sriov_numvfs(self, mock__set_sriov_numvfs):
+        dev = pci.PCINetDevice('0000:10:00.0')
+        dev.sriov = True
+        dev.set_sriov_numvfs(4)
+        mock__set_sriov_numvfs.assert_has_calls([
+            call(0), call(4)])
+
+    @patch('pci.PCINetDevice._set_sriov_numvfs')
+    def test_set_sriov_numvfs_avoid_call(self, mock__set_sriov_numvfs):
+        dev = pci.PCINetDevice('0000:10:00.0')
+        dev.sriov = True
+        dev.sriov_numvfs = 4
+        dev.set_sriov_numvfs(4)
+        self.assertFalse(mock__set_sriov_numvfs.called)
 
 
 class PCINetDevicesTest(CharmTestCase):

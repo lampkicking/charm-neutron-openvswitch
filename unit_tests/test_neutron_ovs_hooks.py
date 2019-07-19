@@ -32,6 +32,7 @@ utils.register_configs = _reg
 utils.restart_map = _map
 
 TO_PATCH = [
+    'create_sysctl',
     'config',
     'CONFIGS',
     'get_shared_secret',
@@ -41,13 +42,19 @@ TO_PATCH = [
     'configure_ovs',
     'configure_sriov',
     'use_dvr',
+    'use_l3ha',
     'install_packages',
+    'install_l3ha_packages',
     'purge_packages',
     'enable_nova_metadata',
     'enable_local_dhcp',
     'install_tmpfilesd',
     'purge_packages',
     'determine_purge_packages',
+<<<<<<< HEAD
+=======
+    'is_container',
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 ]
 NEUTRON_CONF_DIR = "/etc/neutron"
 
@@ -60,6 +67,7 @@ class NeutronOVSHooksTests(CharmTestCase):
         super(NeutronOVSHooksTests, self).setUp(hooks, TO_PATCH)
 
         self.config.side_effect = self.test_config.get
+        self.is_container.return_value = False
         hooks.hooks._config_save = False
 
     def _call_hook(self, hookname):
@@ -108,7 +116,30 @@ class NeutronOVSHooksTests(CharmTestCase):
         self.install_packages.assert_called_with()
         self.assertTrue(self.CONFIGS.write_all.called)
         self.configure_ovs.assert_called_with()
+<<<<<<< HEAD
 
+=======
+
+    def test_config_changed_sysctl_overrides(self):
+        self.test_config.set(
+            'sysctl',
+            '{foo : bar}'
+        )
+        self._call_hook('config-changed')
+        self.create_sysctl.assert_called_with(
+            '{foo : bar}',
+            '/etc/sysctl.d/50-openvswitch.conf')
+
+    def test_config_changed_sysctl_container(self):
+        self.test_config.set(
+            'sysctl',
+            '{foo : bar}'
+        )
+        self.is_container.return_value = True
+        self._call_hook('config-changed')
+        self.create_sysctl.assert_not_called()
+
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
     @patch.object(hooks, 'neutron_plugin_joined')
     def test_config_changed_rocky_upgrade(self, _plugin_joined):
         self.determine_purge_packages.return_value = ['python-neutron']
@@ -122,8 +153,12 @@ class NeutronOVSHooksTests(CharmTestCase):
             relation_id='neutron-plugin:42',
             request_restart=True)
 
+    @patch.object(hooks, 'os_release')
     @patch.object(hooks, 'neutron_plugin_joined')
-    def test_neutron_plugin_api(self, _plugin_joined):
+    def test_neutron_plugin_api(self, _plugin_joined, _os_release):
+        _os_release.return_value = 'newton'
+        self.use_dvr.return_value = True
+        self.use_l3ha.return_value = False
         self.relation_ids.return_value = ['rid']
         self._call_hook('neutron-plugin-api-relation-changed')
         self.configure_ovs.assert_called_with()
@@ -134,12 +169,14 @@ class NeutronOVSHooksTests(CharmTestCase):
     @patch.object(hooks, 'neutron_plugin_joined')
     def test_neutron_plugin_api_nodvr(self, _plugin_joined):
         self.use_dvr.return_value = False
+        self.use_l3ha.return_value = False
         self.relation_ids.return_value = ['rid']
         self._call_hook('neutron-plugin-api-relation-changed')
         self.configure_ovs.assert_called_with()
         self.assertTrue(self.CONFIGS.write_all.called)
         _plugin_joined.assert_called_with(relation_id='rid')
-        self.purge_packages.assert_called_with(['neutron-l3-agent'])
+        self.purge_packages.assert_called_with(['neutron-l3-agent',
+                                                'keepalived'])
 
     def test_neutron_plugin_joined_dvr_dhcp(self):
         self.enable_nova_metadata.return_value = True
@@ -188,6 +225,33 @@ class NeutronOVSHooksTests(CharmTestCase):
         self.purge_packages.assert_called_with(['neutron-dhcp-agent',
                                                 'neutron-metadata-agent'])
         self.assertFalse(self.install_packages.called)
+
+    @patch.object(hooks, 'os_release')
+    @patch.object(hooks, 'neutron_plugin_joined')
+    def test_neutron_plugin_api_dvr_no_l3ha(self, _plugin_joined, _os_release):
+        _os_release.return_value = 'newton'
+        self.use_dvr.return_value = True
+        self.use_l3ha.return_value = False
+        self.relation_ids.return_value = ['rid']
+        self._call_hook('neutron-plugin-api-relation-changed')
+        self.configure_ovs.assert_called_with()
+        self.assertTrue(self.CONFIGS.write_all.called)
+        _plugin_joined.assert_called_with(relation_id='rid')
+        self.purge_packages.assert_not_called()
+
+    @patch.object(hooks, 'os_release')
+    @patch.object(hooks, 'neutron_plugin_joined')
+    def test_neutron_plugin_api_dvr_l3ha(self, _plugin_joined, _os_release):
+        _os_release.return_value = 'newton'
+        self.use_dvr.return_value = True
+        self.use_l3ha.return_value = True
+        self.relation_ids.return_value = ['rid']
+        self._call_hook('neutron-plugin-api-relation-changed')
+        self.configure_ovs.assert_called_with()
+        self.assertTrue(self.CONFIGS.write_all.called)
+        _plugin_joined.assert_called_with(relation_id='rid')
+        self.install_packages.assert_called_with()
+        self.install_l3ha_packages.assert_called_with()
 
     def test_amqp_joined(self):
         self._call_hook('amqp-relation-joined')

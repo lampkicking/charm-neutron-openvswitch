@@ -20,6 +20,10 @@ series:
   - xenial
   - bionic
   - cosmic
+<<<<<<< HEAD
+=======
+  - disco
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
   - trusty
 extra-bindings:
   data:

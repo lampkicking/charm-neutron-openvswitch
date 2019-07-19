@@ -73,6 +73,8 @@ from charmhelpers.core.host import (
     service_running,
     service_pause,
     service_resume,
+    service_stop,
+    service_start,
     restart_on_change_helper,
 )
 from charmhelpers.fetch import (
@@ -81,7 +83,8 @@ from charmhelpers.fetch import (
     add_source as fetch_add_source,
     SourceConfigError,
     GPGKeyError,
-    get_upstream_version
+    get_upstream_version,
+    filter_missing_packages
 )
 
 from charmhelpers.fetch.snap import (
@@ -116,6 +119,7 @@ OPENSTACK_RELEASES = (
     'pike',
     'queens',
     'rocky',
+    'stein',
 )
 
 UBUNTU_OPENSTACK_RELEASE = OrderedDict([
@@ -134,6 +138,10 @@ UBUNTU_OPENSTACK_RELEASE = OrderedDict([
     ('artful', 'pike'),
     ('bionic', 'queens'),
     ('cosmic', 'rocky'),
+<<<<<<< HEAD
+=======
+    ('disco', 'stein'),
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 ])
 
 
@@ -153,6 +161,10 @@ OPENSTACK_CODENAMES = OrderedDict([
     ('2017.2', 'pike'),
     ('2018.1', 'queens'),
     ('2018.2', 'rocky'),
+<<<<<<< HEAD
+=======
+    ('2019.1', 'stein'),
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 ])
 
 # The ugly duckling - must list releases oldest to newest
@@ -187,6 +199,11 @@ SWIFT_CODENAMES = OrderedDict([
         ['2.16.0', '2.17.0']),
     ('rocky',
         ['2.18.0', '2.19.0']),
+<<<<<<< HEAD
+=======
+    ('stein',
+        ['2.20.0']),
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 ])
 
 # >= Liberty version->codename mapping
@@ -199,6 +216,7 @@ PACKAGE_CODENAMES = {
         ('16', 'pike'),
         ('17', 'queens'),
         ('18', 'rocky'),
+        ('19', 'stein'),
     ]),
     'neutron-common': OrderedDict([
         ('7', 'liberty'),
@@ -208,6 +226,7 @@ PACKAGE_CODENAMES = {
         ('11', 'pike'),
         ('12', 'queens'),
         ('13', 'rocky'),
+        ('14', 'stein'),
     ]),
     'cinder-common': OrderedDict([
         ('7', 'liberty'),
@@ -217,6 +236,7 @@ PACKAGE_CODENAMES = {
         ('11', 'pike'),
         ('12', 'queens'),
         ('13', 'rocky'),
+        ('14', 'stein'),
     ]),
     'keystone': OrderedDict([
         ('8', 'liberty'),
@@ -226,6 +246,7 @@ PACKAGE_CODENAMES = {
         ('12', 'pike'),
         ('13', 'queens'),
         ('14', 'rocky'),
+        ('15', 'stein'),
     ]),
     'horizon-common': OrderedDict([
         ('8', 'liberty'),
@@ -235,6 +256,7 @@ PACKAGE_CODENAMES = {
         ('12', 'pike'),
         ('13', 'queens'),
         ('14', 'rocky'),
+        ('15', 'stein'),
     ]),
     'ceilometer-common': OrderedDict([
         ('5', 'liberty'),
@@ -244,6 +266,7 @@ PACKAGE_CODENAMES = {
         ('9', 'pike'),
         ('10', 'queens'),
         ('11', 'rocky'),
+        ('12', 'stein'),
     ]),
     'heat-common': OrderedDict([
         ('5', 'liberty'),
@@ -253,6 +276,7 @@ PACKAGE_CODENAMES = {
         ('9', 'pike'),
         ('10', 'queens'),
         ('11', 'rocky'),
+        ('12', 'stein'),
     ]),
     'glance-common': OrderedDict([
         ('11', 'liberty'),
@@ -262,6 +286,7 @@ PACKAGE_CODENAMES = {
         ('15', 'pike'),
         ('16', 'queens'),
         ('17', 'rocky'),
+        ('18', 'stein'),
     ]),
     'openstack-dashboard': OrderedDict([
         ('8', 'liberty'),
@@ -271,6 +296,7 @@ PACKAGE_CODENAMES = {
         ('12', 'pike'),
         ('13', 'queens'),
         ('14', 'rocky'),
+        ('15', 'stein'),
     ]),
 }
 
@@ -293,13 +319,22 @@ def error_out(msg):
     sys.exit(1)
 
 
+def get_installed_semantic_versioned_packages():
+    '''Get a list of installed packages which have OpenStack semantic versioning
+
+    :returns List of installed packages
+    :rtype: [pkg1, pkg2, ...]
+    '''
+    return filter_missing_packages(PACKAGE_CODENAMES.keys())
+
+
 def get_os_codename_install_source(src):
     '''Derive OpenStack release codename from a given installation source.'''
     ubuntu_rel = lsb_release()['DISTRIB_CODENAME']
     rel = ''
     if src is None:
         return rel
-    if src in ['distro', 'distro-proposed']:
+    if src in ['distro', 'distro-proposed', 'proposed']:
         try:
             rel = UBUNTU_OPENSTACK_RELEASE[ubuntu_rel]
         except KeyError:
@@ -630,7 +665,11 @@ def openstack_upgrade_available(package):
     else:
         avail_vers = get_os_version_install_source(src)
     apt.init()
+<<<<<<< HEAD
     return apt.version_compare(avail_vers, cur_vers) == 1
+=======
+    return apt.version_compare(avail_vers, cur_vers) >= 1
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 
 
 def ensure_block_device(block_device):
@@ -956,7 +995,9 @@ def _ows_check_charm_func(state, message, charm_func_with_configs):
     """
     if charm_func_with_configs:
         charm_state, charm_message = charm_func_with_configs()
-        if charm_state != 'active' and charm_state != 'unknown':
+        if (charm_state != 'active' and
+                charm_state != 'unknown' and
+                charm_state is not None):
             state = workload_state_compare(state, charm_state)
             if message:
                 charm_message = charm_message.replace("Incomplete relations: ",
@@ -1225,7 +1266,7 @@ def remote_restart(rel_name, remote_service=None):
 
 
 def check_actually_paused(services=None, ports=None):
-    """Check that services listed in the services object and and ports
+    """Check that services listed in the services object and ports
     are actually closed (not listened to), to verify that the unit is
     properly paused.
 
@@ -1303,6 +1344,65 @@ def is_unit_paused_set():
         return False
 
 
+def manage_payload_services(action, services=None, charm_func=None):
+    """Run an action against all services.
+
+    An optional charm_func() can be called. It should raise an Exception to
+    indicate that the function failed. If it was succesfull it should return
+    None or an optional message.
+
+    The signature for charm_func is:
+    charm_func() -> message: str
+
+    charm_func() is executed after any services are stopped, if supplied.
+
+    The services object can either be:
+      - None : no services were passed (an empty dict is returned)
+      - a list of strings
+      - A dictionary (optionally OrderedDict) {service_name: {'service': ..}}
+      - An array of [{'service': service_name, ...}, ...]
+
+    :param action: Action to run: pause, resume, start or stop.
+    :type action: str
+    :param services: See above
+    :type services: See above
+    :param charm_func: function to run for custom charm pausing.
+    :type charm_func: f()
+    :returns: Status boolean and list of messages
+    :rtype: (bool, [])
+    :raises: RuntimeError
+    """
+    actions = {
+        'pause': service_pause,
+        'resume': service_resume,
+        'start': service_start,
+        'stop': service_stop}
+    action = action.lower()
+    if action not in actions.keys():
+        raise RuntimeError(
+            "action: {} must be one of: {}".format(action,
+                                                   ', '.join(actions.keys())))
+    services = _extract_services_list_helper(services)
+    messages = []
+    success = True
+    if services:
+        for service in services.keys():
+            rc = actions[action](service)
+            if not rc:
+                success = False
+                messages.append("{} didn't {} cleanly.".format(service,
+                                                               action))
+    if charm_func:
+        try:
+            message = charm_func()
+            if message:
+                messages.append(message)
+        except Exception as e:
+            success = False
+            messages.append(str(e))
+    return success, messages
+
+
 def pause_unit(assess_status_func, services=None, ports=None,
                charm_func=None):
     """Pause a unit by stopping the services and setting 'unit-paused'
@@ -1333,20 +1433,10 @@ def pause_unit(assess_status_func, services=None, ports=None,
     @returns None
     @raises Exception(message) on an error for action_fail().
     """
-    services = _extract_services_list_helper(services)
-    messages = []
-    if services:
-        for service in services.keys():
-            stopped = service_pause(service)
-            if not stopped:
-                messages.append("{} didn't stop cleanly.".format(service))
-    if charm_func:
-        try:
-            message = charm_func()
-            if message:
-                messages.append(message)
-        except Exception as e:
-            message.append(str(e))
+    _, messages = manage_payload_services(
+        'pause',
+        services=services,
+        charm_func=charm_func)
     set_unit_paused()
     if assess_status_func:
         message = assess_status_func()
@@ -1385,20 +1475,10 @@ def resume_unit(assess_status_func, services=None, ports=None,
     @returns None
     @raises Exception(message) on an error for action_fail().
     """
-    services = _extract_services_list_helper(services)
-    messages = []
-    if services:
-        for service in services.keys():
-            started = service_resume(service)
-            if not started:
-                messages.append("{} didn't start cleanly.".format(service))
-    if charm_func:
-        try:
-            message = charm_func()
-            if message:
-                messages.append(message)
-        except Exception as e:
-            message.append(str(e))
+    _, messages = manage_payload_services(
+        'resume',
+        services=services,
+        charm_func=charm_func)
     clear_unit_paused()
     if assess_status_func:
         message = assess_status_func()

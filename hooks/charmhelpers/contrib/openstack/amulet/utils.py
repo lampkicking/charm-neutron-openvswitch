@@ -57,7 +57,12 @@ OPENSTACK_RELEASES_PAIRS = [
     'trusty_mitaka', 'xenial_mitaka', 'xenial_newton',
     'yakkety_newton', 'xenial_ocata', 'zesty_ocata',
     'xenial_pike', 'artful_pike', 'xenial_queens',
+<<<<<<< HEAD
     'bionic_queens', 'bionic_rocky', 'cosmic_rocky']
+=======
+    'bionic_queens', 'bionic_rocky', 'cosmic_rocky',
+    'bionic_stein', 'disco_stein']
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 
 
 class OpenStackAmuletUtils(AmuletUtils):
@@ -87,6 +92,7 @@ class OpenStackAmuletUtils(AmuletUtils):
         validation_function = self.validate_v2_endpoint_data
         xenial_queens = OPENSTACK_RELEASES_PAIRS.index('xenial_queens')
         if openstack_release and openstack_release >= xenial_queens:
+<<<<<<< HEAD
                 validation_function = self.validate_v3_endpoint_data
                 expected = {
                     'id': expected['id'],
@@ -95,6 +101,16 @@ class OpenStackAmuletUtils(AmuletUtils):
                     'url': self.valid_url,
                     'interface': self.not_null,
                     'service_id': expected['service_id']}
+=======
+            validation_function = self.validate_v3_endpoint_data
+            expected = {
+                'id': expected['id'],
+                'region': expected['region'],
+                'region_id': 'RegionOne',
+                'url': self.valid_url,
+                'interface': self.not_null,
+                'service_id': expected['service_id']}
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
         return validation_function(endpoints, admin_port, internal_port,
                                    public_port, expected)
 

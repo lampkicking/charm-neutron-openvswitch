@@ -1,6 +1,10 @@
 [gerrit]
-host=review.openstack.org
+host=review.opendev.org
 port=29418
 project=openstack/charm-neutron-openvswitch.git
 
+<<<<<<< HEAD
 defaultbranch=stable/18.11
+=======
+defaultbranch=stable/19.04
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df

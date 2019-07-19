@@ -442,6 +442,26 @@ class L3AgentContextTest(CharmTestCase):
     @patch.object(charmhelpers.contrib.openstack.context, 'relation_get')
     @patch.object(charmhelpers.contrib.openstack.context, 'relation_ids')
     @patch.object(charmhelpers.contrib.openstack.context, 'related_units')
+    def test_dvr_enabled_dvr_snat_enabled(self, _runits, _rids, _rget):
+        self.test_config.set('use-dvr-snat', True)
+        _runits.return_value = ['unit1']
+        _rids.return_value = ['rid2']
+        rdata = {
+            'neutron-security-groups': 'True',
+            'enable-dvr': 'True',
+            'l2-population': 'True',
+            'overlay-network-type': 'vxlan',
+            'network-device-mtu': 1500,
+        }
+        _rget.side_effect = lambda *args, **kwargs: rdata
+        self.assertEqual(
+            context.L3AgentContext()(), {'agent_mode': 'dvr_snat',
+                                         'external_configuration_new': True}
+        )
+
+    @patch.object(charmhelpers.contrib.openstack.context, 'relation_get')
+    @patch.object(charmhelpers.contrib.openstack.context, 'relation_ids')
+    @patch.object(charmhelpers.contrib.openstack.context, 'related_units')
     def test_dvr_disabled(self, _runits, _rids, _rget):
         _runits.return_value = ['unit1']
         _rids.return_value = ['rid2']
@@ -603,10 +623,17 @@ class TestOVSDPDKDeviceContext(CharmTestCase):
 
     def test_device_whitelist(self):
         '''Test device whitelist generation'''
+<<<<<<< HEAD
         self.resolve_dpdk_bridges.return_value = [
             '0000:00:1c.0',
             '0000:00:1d.0'
         ]
+=======
+        self.resolve_dpdk_bridges.return_value = {
+            '0000:00:1c.0': 'br-data',
+            '0000:00:1d.0': 'br-data',
+        }
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
         self.assertEqual(self.test_context.device_whitelist(),
                          '-w 0000:00:1c.0 -w 0000:00:1d.0')
 
@@ -637,15 +664,27 @@ class TestOVSDPDKDeviceContext(CharmTestCase):
 
     def test_context_no_devices(self):
         '''Ensure that DPDK is disable when no devices detected'''
+<<<<<<< HEAD
         self.resolve_dpdk_bridges.return_value = []
+=======
+        self.resolve_dpdk_bridges.return_value = {}
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
         self.assertEqual(self.test_context(), {})
 
     def test_context_devices(self):
         '''Ensure DPDK is enabled when devices are detected'''
+<<<<<<< HEAD
         self.resolve_dpdk_bridges.return_value = [
             '0000:00:1c.0',
             '0000:00:1d.0'
         ]
+=======
+        self.resolve_dpdk_bridges.return_value = {
+            '0000:00:1c.0': 'br-data',
+            '0000:00:1d.0': 'br-data',
+        }
+        self.resolve_dpdk_bonds.return_value = {}
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
         self.numa_node_cores.return_value = NUMA_CORES_SINGLE
         self.glob.glob.return_value = ['a']
         self.assertEqual(self.test_context(), {

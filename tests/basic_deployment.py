@@ -37,7 +37,7 @@ u = OpenStackAmuletUtils(DEBUG)
 
 
 class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
-    """Amulet tests on a basic neutron-openvswtich deployment."""
+    """Amulet tests on a basic neutron-openvswitch deployment."""
 
     def __init__(self, series, openstack=None, source=None,
                  stable=True):
@@ -133,6 +133,16 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         self.neutron_api_sentry = self.d.sentry['neutron-api'][0]
         self.n_ovs_sentry = self.d.sentry['neutron-openvswitch'][0]
 
+<<<<<<< HEAD
+=======
+        # pidof is failing to find neutron-server on stein
+        # use pgrep instead.
+        if self._get_openstack_release() >= self.bionic_stein:
+            self.pgrep_full = True
+        else:
+            self.pgrep_full = False
+
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
     def _wait_and_check(self, sleep=5, exclude_services=[]):
         """Extended wait and check helper
 
@@ -357,9 +367,9 @@ class NeutronOVSBasicDeployment(OpenStackAmuletDeployment):
         sleep_time = 30
         for s, conf_file in services.iteritems():
             u.log.debug("Checking that service restarted: {}".format(s))
-            if not u.validate_service_config_changed(sentry, mtime, s,
-                                                     conf_file,
-                                                     sleep_time=sleep_time):
+            if not u.validate_service_config_changed(
+                    sentry, mtime, s, conf_file, sleep_time=sleep_time,
+                    pgrep_full=self.pgrep_full):
                 self.d.configure(juju_service, set_default)
                 self._wait_and_check()
                 msg = "service {} didn't restart after config change".format(s)

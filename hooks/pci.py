@@ -155,6 +155,8 @@ class PCINetDevice(object):
         self.mac_address = None
         self.state = None
         self.sriov = False
+        self.sriov_totalvfs = None
+        self.sriov_numvfs = None
         self.update_attributes()
 
     def update_attributes(self):
@@ -172,20 +174,27 @@ class PCINetDevice(object):
                     self.sriov_totalvfs = interface['sriov_totalvfs']
                     self.sriov_numvfs = interface['sriov_numvfs']
 
+    def _set_sriov_numvfs(self, numvfs):
+        sdevice = os.path.join('/sys/class/net',
+                               self.interface_name,
+                               'device', 'sriov_numvfs')
+        with open(sdevice, 'w') as sh:
+            sh.write(str(numvfs))
+        self.update_attributes()
+
     def set_sriov_numvfs(self, numvfs):
-        '''Set the number of VF devices for a SR-IOV PF
+        """Set the number of VF devices for a SR-IOV PF
 
         Assuming the device is an SR-IOV device, this function will attempt
         to change the number of VF's created by the PF.
 
         @param numvfs: integer to set the current number of VF's to
-        '''
-        if self.sriov:
-            sdevice = os.path.join('/sys/class/net',
-                                   self.interface_name,
-                                   'device', 'sriov_numvfs')
-            with open(sdevice, 'w') as sh:
-                sh.write(str(numvfs))
+        """
+        if self.sriov and numvfs != self.sriov_numvfs:
+            # NOTE(fnordahl): run-time change of numvfs is disallowed
+            # without resetting to 0 first.
+            self._set_sriov_numvfs(0)
+            self._set_sriov_numvfs(numvfs)
 
 
 class PCINetDevices(object):

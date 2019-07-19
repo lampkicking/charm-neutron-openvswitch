@@ -24,6 +24,11 @@ from charmhelpers.contrib.openstack.utils import (
     series_upgrade_prepare,
     series_upgrade_complete,
     is_unit_paused_set,
+<<<<<<< HEAD
+=======
+    CompareOpenStackReleases,
+    os_release,
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 )
 
 from charmhelpers.core.hookenv import (
@@ -35,9 +40,16 @@ from charmhelpers.core.hookenv import (
     relation_ids,
 )
 
+from charmhelpers.core.sysctl import create as create_sysctl
+
+from charmhelpers.core.host import (
+    is_container,
+)
+
 from neutron_ovs_utils import (
     DHCP_PACKAGES,
     DVR_PACKAGES,
+    L3HA_PACKAGES,
     METADATA_PACKAGES,
     OVS_DEFAULT,
     configure_ovs,
@@ -46,9 +58,11 @@ from neutron_ovs_utils import (
     register_configs,
     restart_map,
     use_dvr,
+    use_l3ha,
     enable_nova_metadata,
     enable_local_dhcp,
     install_packages,
+    install_l3ha_packages,
     purge_packages,
     assess_status,
     install_tmpfilesd,
@@ -111,6 +125,14 @@ def config_changed():
     if packages_to_purge:
         purge_packages(packages_to_purge)
         request_nova_compute_restart = True
+<<<<<<< HEAD
+=======
+
+    sysctl_settings = config('sysctl')
+    if not is_container() and sysctl_settings:
+        create_sysctl(sysctl_settings,
+                      '/etc/sysctl.d/50-openvswitch.conf')
+>>>>>>> bd354841d5422f5d936c9f031228c3d5889368df
 
     configure_ovs()
     CONFIGS.write_all()
@@ -126,10 +148,24 @@ def config_changed():
 @hooks.hook('neutron-plugin-api-relation-changed')
 @restart_on_change(restart_map())
 def neutron_plugin_api_changed():
+    packages_to_purge = []
     if use_dvr():
         install_packages()
+        # per 17.08 release notes L3HA + DVR is a Newton+ feature
+        _os_release = os_release('neutron-common', base='icehouse')
+        if (use_l3ha() and
+           CompareOpenStackReleases(_os_release) >= 'newton'):
+            install_l3ha_packages()
+
+        # NOTE(hopem): don't uninstall keepalived if not using l3ha since that
+        # results in neutron-l3-agent also being uninstalled (see LP 1819499).
     else:
-        purge_packages(DVR_PACKAGES)
+        packages_to_purge = deepcopy(DVR_PACKAGES)
+        packages_to_purge.extend(L3HA_PACKAGES)
+
+    if packages_to_purge:
+        purge_packages(packages_to_purge)
+
     configure_ovs()
     CONFIGS.write_all()
     # If dvr setting has changed, need to pass that on
@@ -147,7 +183,9 @@ def neutron_plugin_joined(relation_id=None, request_restart=False):
         #       in use as this will remove the l3 agent
         #       see https://pad.lv/1515008
         if not use_dvr():
-            pkgs.extend(METADATA_PACKAGES)
+            # NOTE(fnordahl) do not remove ``haproxy``, the principal charm may
+            # have use for it. LP: #1832739
+            pkgs.extend(set(METADATA_PACKAGES)-set(['haproxy']))
         purge_packages(pkgs)
     secret = get_shared_secret() if enable_nova_metadata() else None
     rel_data = {
